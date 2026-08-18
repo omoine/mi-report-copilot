@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MI Report Copilot (POC)</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header>
+  <h1>MI Report Copilot</h1>
+  <span class="sub">Intraday liquidity management information &mdash; proof of concept</span>
+  <span class="badge" id="statusBadge">checking&hellip;</span>
+</header>
+
+<div class="layout">
+
+  <div class="panel" id="controlPanel">
+    <h2>Ask for a view</h2>
+    <textarea id="queryInput" placeholder="e.g. Show me total nostro transfer value by currency for today"></textarea>
+    <div class="btn-row">
+      <button id="askBtn">Ask</button>
+      <button id="resetBtn" class="secondary">Start over</button>
+    </div>
+
+    <div class="examples">
+      <h2>Examples</h2>
+      <button class="ex">Total nostro transfer value by currency</button>
+      <button class="ex">Which client accounts failed reconciliation?</button>
+      <button class="ex">Business ledger amounts by cashflow type</button>
+      <button class="ex">Nostro transfers by sending strategy and status</button>
+      <button class="ex">Top counterparties by ledger amount</button>
+    </div>
+
+    <div class="examples">
+      <h2>Available data</h2>
+      <div class="hint" id="dataInfo">loading&hellip;</div>
+    </div>
+  </div>
+
+  <div class="panel" id="conversation">
+    <div class="empty" id="emptyState">
+      Describe the management view you need.<br>
+      The assistant will confirm what it understood &mdash; and flag any limitations &mdash; before building anything.
+    </div>
+  </div>
+
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
