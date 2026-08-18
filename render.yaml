@@ -1,0 +1,21 @@
+# Render blueprint - deploys this repo as a public web service.
+#
+# The API key is deliberately NOT in this file. `sync: false` makes Render
+# prompt for it once and store it as a secret, so it never enters the repository.
+services:
+  - type: web
+    name: mi-report-copilot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.1"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o
+      # matplotlib needs a writable config directory on a read-only-ish host.
+      - key: MPLCONFIGDIR
+        value: /tmp/matplotlib

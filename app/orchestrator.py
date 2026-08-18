@@ -10,13 +10,18 @@ agrees. The model chooses the query; this module executes it deterministically.
 from __future__ import annotations
 
 import datetime as dt
+import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 from . import data_access, llm_client, md_export, pdf_export, prompts, report_builder
 
-EXPORT_DIR = Path(__file__).resolve().parent.parent / "exports"
+# Overridable so a hosted deployment can write to a writable volume (e.g. /tmp)
+# when the application directory is read-only.
+EXPORT_DIR = Path(
+    os.getenv("EXPORT_DIR") or Path(__file__).resolve().parent.parent / "exports"
+)
 
 AWAITING_QUERY = "awaiting_query"
 AWAITING_CONFIRMATION = "awaiting_confirmation"
