@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .env
 exports/
+
+# Anonymisation golden source - real values, never committed
+anonymisation/
