@@ -26,7 +26,7 @@ Return a JSON object with exactly these keys:
   "understood": "<one or two sentences restating, in business language, the view you will build>",
   "query": {
     "view": "<one of: nostro_transfer | client | business_ledger>",
-    "mode": "<aggregate | list>",
+    "mode": "<aggregate | list | distribution>",
     "filters": [{"column": "<exact column name>", "operator": "<eq|ne|gt|gte|lt|lte|in|not_in|contains|is_null|not_null>", "value": <string, number or list>}],
 
     // aggregate mode only:
@@ -55,6 +55,14 @@ CHOOSING THE MODE - this matters more than anything else:
   the status. Set chart_type to "table". Use sort_by + limit for "largest"/"top".
 - "aggregate" when the user wants a NUMBER OR A COMPARISON: totals, averages,
   counts, breakdowns, "by currency", "per entity", "how much", "how many".
+- "distribution" when the user asks HOW VALUES ARE SPREAD: "distribution of",
+  "statistical analysis", "mean, median and quantiles", "standard deviations",
+  "percentiles", "spread", "outliers", "is it skewed", "box plot", "histogram".
+  Put the numeric column in "measures" (aggregation is ignored). Add one
+  "group_by" column to compare distributions side by side as box plots.
+  The engine returns count, mean, std, min, p25, median, p75, p95, max, the
+  +/-3 standard deviation bounds, skew, and the share of values actually inside
+  1, 2 and 3 standard deviations.
 
 Getting this wrong is the most common failure. "Which accounts failed
 reconciliation?" is a LIST of those accounts with their differences - NOT a count
@@ -97,6 +105,14 @@ Rules for the query:
 - Filter values for enum-like columns must come from the listed allowed values.
 - Prefer a display-currency measure when comparing across currencies, because
   local-currency amounts are not additive across different currencies.
+- CRITICAL - the Nostro Transfer View has NO display-currency column: its
+  "Value Amount" is always in the transfer's own currency. So any breakdown of
+  that view across currencies is comparing unlike units, and one JPY is not one
+  GBP. You may still build it when asked, but you MUST say plainly in
+  "limitations" that the amounts are in different currencies and are therefore
+  not directly comparable or summable, and that converting them would need an
+  FX-translated amount this view does not carry. Never present such a total as
+  if it were a single meaningful figure.
 - Use "table" as chart_type when the user wants a listing rather than a comparison.
 - Use "barh" when category names are long or there are more than about eight of
   them, and for part-to-whole questions (share of total). Use "line" only when the
@@ -116,6 +132,19 @@ Rules for the query:
   figure that does not mean what they think it means.
 - A request is feasible only if every concept in it maps to a real column. Partial
   matches are not enough. If in doubt, mark it infeasible and explain.
+
+- BUT do not confuse a MISSING CONCEPT with a CALCULATION you have not been given
+  ready-made. These are completely different:
+    * Missing concept - there is no column carrying the idea at all. A credit
+      limit is nowhere in the data, so no arithmetic recovers it. Decline.
+    * Calculation - the underlying values are present and the statistic is
+      computed from them. Mean, median, quantiles, percentiles, standard
+      deviation, spread, skew, outliers, totals, averages, growth between two
+      columns, shares of a total: ALL of these are computed by the engine from
+      the raw values. They are never a reason to decline.
+  "The view does not directly provide the median" is NOT a valid reason to
+  decline - the engine computes it from the column's values. Only decline when
+  the underlying values themselves are absent.
 - If a value is a glyph (such as the reconciliation Match column), filter using
   the plain word given in "filter_using_these_words_instead", not the symbol.
 
@@ -154,6 +183,18 @@ WORKED EXAMPLES - match the shape of these.
   mode: "aggregate", view: "nostro_transfer",
   filters: [{"column":"Transfer Status","operator":"eq","value":"FAILED"}],
   measures: [{"aggregation":"count"}], chart_type: "table"
+
+"Statistical analysis of flow values - mean, median, quantiles, +/-3 sigma"
+  mode: "distribution", view: "nostro_transfer",
+  measures: [{"column":"Value Amount"}], chart_type: "table"
+  limitations should note whether the values are actually normally distributed,
+  since flow data is usually skewed - the engine reports the real share inside
+  each sigma band, so use that rather than assuming 68/95/99.7.
+
+"How does transfer size vary by currency?"
+  mode: "distribution", view: "nostro_transfer",
+  measures: [{"column":"Value Amount"}], group_by: ["Currency"],
+  chart_type: "table"
 
 Rules for limitations and dependencies - be specific and grounded:
 - State it when a measure is FX-translated using the workbook's static synthetic

@@ -288,7 +288,47 @@ def _apply_filter(df: pd.DataFrame, spec: dict[str, Any]) -> pd.DataFrame:
     return df[ops[op](series)]
 
 
-AGGREGATIONS = {"sum", "mean", "count", "min", "max", "median"}
+AGGREGATIONS = {"sum", "mean", "count", "min", "max", "median", "std", "var",
+                "p25", "p50", "p75", "p90", "p95", "p99"}
+
+
+def _aggregate_series(series: pd.Series, how: str):
+    """Apply an aggregation name, including the percentile forms."""
+    if how.startswith("p") and how[1:].isdigit():
+        return series.quantile(int(how[1:]) / 100)
+    if how == "std":
+        return series.std(ddof=1)
+    if how == "var":
+        return series.var(ddof=1)
+    return getattr(series, how)()
+
+
+def describe_series(series: pd.Series) -> dict[str, float]:
+    """The standard distribution summary, computed deterministically."""
+    clean = pd.to_numeric(series, errors="coerce").dropna()
+    if clean.empty:
+        return {}
+    mean = float(clean.mean())
+    std = float(clean.std(ddof=1)) if len(clean) > 1 else 0.0
+    return {
+        "count": int(clean.count()),
+        "mean": mean,
+        "std": std,
+        "min": float(clean.min()),
+        "p25": float(clean.quantile(0.25)),
+        "median": float(clean.median()),
+        "p75": float(clean.quantile(0.75)),
+        "p95": float(clean.quantile(0.95)),
+        "max": float(clean.max()),
+        # Reported so a reader can see how far the tails actually reach, rather
+        # than assuming a normal distribution.
+        "mean_minus_3std": mean - 3 * std,
+        "mean_plus_3std": mean + 3 * std,
+        "skew": float(clean.skew()) if len(clean) > 2 else 0.0,
+        "within_1std_pct": float(((clean - mean).abs() <= std).mean() * 100) if std else 100.0,
+        "within_2std_pct": float(((clean - mean).abs() <= 2 * std).mean() * 100) if std else 100.0,
+        "within_3std_pct": float(((clean - mean).abs() <= 3 * std).mean() * 100) if std else 100.0,
+    }
 
 # Pandas offset aliases for time bucketing, keyed by the words a user would use.
 TIME_GRANULARITIES = {
@@ -365,6 +405,15 @@ def _normalise_measures(
             continue
         _require_column(df, col, "a measure", view)
         out.append({"column": col, "aggregation": agg, "label": col})
+
+    # Two aggregations of the same column would collide on the column name, so
+    # qualify those labels with the aggregation ("p95 of Amount", "median of...").
+    counts: dict[str, int] = {}
+    for m in out:
+        counts[m["label"]] = counts.get(m["label"], 0) + 1
+    for m in out:
+        if counts[m["label"]] > 1:
+            m["label"] = f"{m['aggregation']} of {m['column']}"
     return out
 
 
@@ -398,8 +447,10 @@ def run_query(
     rows_after_filters = len(df)
 
     mode = (mode or "aggregate").lower()
-    if mode not in {"aggregate", "list"}:
-        raise QueryError(f"Unsupported mode '{mode}'. Use 'aggregate' or 'list'.")
+    if mode not in {"aggregate", "list", "distribution"}:
+        raise QueryError(
+            f"Unsupported mode '{mode}'. Use 'aggregate', 'list' or 'distribution'."
+        )
 
     # Fold the single-measure convenience form into the list form.
     if measure or aggregation:
@@ -411,7 +462,53 @@ def run_query(
     measure_columns: list[str] = []
     measures_note: str | None = None
 
-    if mode == "list":
+    raw_values: pd.DataFrame | None = None
+
+    if mode == "distribution":
+        # How is a single numeric column distributed? Returns the summary
+        # statistics as the table, and carries the raw values so a histogram or
+        # box plot can be drawn from them.
+        resolved_measures = _normalise_measures(measures, view, df)
+        if not resolved_measures or not resolved_measures[0]["column"]:
+            raise QueryError(
+                "A distribution needs a numeric column. "
+                f"Available numeric columns: "
+                f"{', '.join(c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]))}."
+            )
+        target = resolved_measures[0]["column"]
+        df = _as_numeric(df, target)
+
+        group_by = [g for g in (group_by or []) if g]
+        for col in group_by:
+            _require_column(df, col, "a grouping", view)
+
+        if group_by:
+            # One distribution per group, compared side by side.
+            rows = []
+            for key, part in df.groupby(group_by[0], dropna=False):
+                stats = describe_series(part[target])
+                if stats:
+                    rows.append({group_by[0]: str(key), **stats})
+            result = pd.DataFrame(rows)
+            label_columns = [group_by[0]]
+            measure_columns = [c for c in result.columns if c != group_by[0]]
+            raw_values = df[[group_by[0], target]].copy()
+        else:
+            stats = describe_series(df[target])
+            if not stats:
+                raise QueryError(f"Column '{target}' has no numeric values to describe.")
+            # One statistic per row reads better than one very wide row.
+            result = pd.DataFrame(
+                [{"Statistic": k, "Value": v} for k, v in stats.items()]
+            )
+            label_columns = ["Statistic"]
+            measure_columns = ["Value"]
+            raw_values = df[[target]].copy()
+
+        resolved_measures = [{"column": target, "aggregation": "distribution",
+                              "label": target}]
+
+    elif mode == "list":
         wanted = [c for c in (columns or []) if c]
         for col in wanted:
             _require_column(df, col, "a column", view)
@@ -456,7 +553,8 @@ def run_query(
                     part = df.groupby(group_by, dropna=False).size().rename("count")
                 else:
                     part = (df.groupby(group_by, dropna=False)[m["column"]]
-                            .agg(m["aggregation"]).rename(m["label"]))
+                            .apply(lambda s, how=m["aggregation"]: _aggregate_series(s, how))
+                            .rename(m["label"]))
                 frames.append(part)
             result = pd.concat(frames, axis=1).reset_index()
             measure_columns = [m["label"] for m in resolved_measures]
@@ -492,12 +590,13 @@ def run_query(
                 if m["aggregation"] == "count":
                     row["count"] = len(df)
                 else:
-                    value = getattr(df[m["column"]], m["aggregation"])()
+                    value = _aggregate_series(df[m["column"]], m["aggregation"])
                     row[m["label"]] = value.item() if hasattr(value, "item") else value
             result = pd.DataFrame([row])
             measure_columns = list(result.columns)
 
-    primary = resolved_measures[0] if mode == "aggregate" and resolved_measures else None
+    primary = (resolved_measures[0]
+               if mode in {"aggregate", "distribution"} and resolved_measures else None)
     return {
         "view": view,
         "sheet": VIEW_SHEETS[view],
@@ -505,6 +604,7 @@ def run_query(
         "mode": mode,
         "label_columns": label_columns,
         "measure_columns": measure_columns,
+        "raw_values": raw_values,
         "provenance": {
             "view": view,
             "sheet": VIEW_SHEETS[view],
@@ -516,7 +616,7 @@ def run_query(
             "measures": ([f"{m['aggregation']} of {m['column'] or 'rows'}"
                           for m in resolved_measures]
                          + ([measures_note] if mode == "aggregate" and measures_note else [])
-                         ) if mode == "aggregate" else [],
+                         ) if mode in {"aggregate", "distribution"} else [],
             "columns": label_columns if mode == "list" else [],
             "sort_by": sort_by,
             "limit": limit,

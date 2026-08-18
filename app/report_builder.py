@@ -285,6 +285,167 @@ def _render_barh(df, label_col: str, value_col: str, title: str, t: dict[str, st
     return fig
 
 
+def render_distribution(
+    raw: pd.DataFrame,
+    column: str,
+    title: str,
+    out_dir: Path,
+    session_id: str,
+    theme: str | None = None,
+    group_col: str | None = None,
+) -> dict[str, Any]:
+    """Histogram with mean/median/sigma markers, or a box plot when grouped.
+
+    The sigma markers are drawn because they were asked for, but the caption
+    reports the share of values actually falling inside each band - financial
+    flow data is usually skewed, and quoting sigma without that check invites a
+    normal-distribution assumption the data does not support.
+    """
+    t = _theme(theme)
+    plt.rcParams["font.family"] = FONT_STACK
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = dt.datetime.now().strftime("%H%M%S%f")
+    suffix = f"_{theme}" if theme and theme != DEFAULT_THEME else ""
+    out_path = out_dir / f"dist_{session_id}_{stamp}{suffix}.png"
+
+    values = pd.to_numeric(raw[column], errors="coerce").dropna()
+    if values.empty:
+        return {"chart_path": None, "chart_type": "table",
+                "notes": [f"'{column}' has no numeric values to plot."]}
+
+    if group_col and group_col in raw.columns and raw[group_col].nunique() > 1:
+        fig, notes = _render_box(raw, column, group_col, title, t)
+    else:
+        fig, notes = _render_histogram(values, column, title, t)
+
+    fig.savefig(out_path, facecolor=t["surface"], bbox_inches="tight")
+    plt.close(fig)
+    return {"chart_path": out_path, "chart_type": "distribution", "notes": notes}
+
+
+def _render_histogram(values: pd.Series, column: str, title: str, t: dict[str, Any]):
+    fig, ax = plt.subplots(figsize=(9, 4.8), dpi=200)
+    fig.patch.set_facecolor(t["surface"])
+
+    n_bins = max(8, min(40, int(len(values) ** 0.5) * 2))
+    ax.hist(values, bins=n_bins, color=t["series"], edgecolor=t["surface"], linewidth=1.2)
+    _style_axes(ax, t, horizontal=False)
+    ax.set_title(title, fontsize=12, color=t["ink_primary"], loc="left", pad=12)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: _human_number(v)))
+    ax.set_ylabel("number of records", fontsize=9, color=t["ink_muted"])
+
+    mean, median = float(values.mean()), float(values.median())
+    std = float(values.std(ddof=1)) if len(values) > 1 else 0.0
+
+    # Sigma bands first, so the mean/median rules sit on top of them.
+    if std:
+        for k in (1, 2, 3):
+            for edge in (mean - k * std, mean + k * std):
+                if values.min() <= edge <= values.max():
+                    ax.axvline(edge, color=t["ink_muted"], linewidth=1,
+                               linestyle=":", alpha=0.75)
+        top = ax.get_ylim()[1]
+        for k in (1, 2, 3):
+            edge = mean + k * std
+            if values.min() <= edge <= values.max():
+                ax.text(edge, top * 0.97, f"+{k}s", ha="center", va="top",
+                        fontsize=7.5, color=t["ink_muted"])
+
+    ax.axvline(mean, color=t["series_set"][1], linewidth=2, label=f"mean {_human_number(mean)}")
+    ax.axvline(median, color=t["series_set"][2], linewidth=2, linestyle="--",
+               label=f"median {_human_number(median)}")
+
+    legend = ax.legend(frameon=False, fontsize=9, loc="upper right")
+    for text in legend.get_texts():
+        text.set_color(t["ink_secondary"])
+
+    notes = []
+    if std:
+        within = float(((values - mean).abs() <= std).mean() * 100)
+        within3 = float(((values - mean).abs() <= 3 * std).mean() * 100)
+        notes.append(
+            f"{within:.0f}% of values fall within 1 standard deviation and "
+            f"{within3:.0f}% within 3 (a normal distribution would give about 68% "
+            f"and 99.7%). Mean {_human_number(mean)} vs median "
+            f"{_human_number(median)}."
+        )
+        if abs(values.skew()) > 1:
+            notes.append(
+                "The distribution is strongly skewed, so the mean is pulled away from "
+                "the typical value - read the median as the central case, and treat "
+                "standard-deviation bands as indicative only."
+            )
+    fig.tight_layout()
+    return fig, notes
+
+
+def _render_box(raw: pd.DataFrame, column: str, group_col: str, title: str,
+                t: dict[str, Any]):
+    groups, labels = [], []
+    for key, part in raw.groupby(group_col, dropna=False):
+        vals = pd.to_numeric(part[column], errors="coerce").dropna()
+        if not vals.empty:
+            groups.append(vals.values)
+            labels.append(str(key))
+    # Widest spread first reads more naturally than alphabetical.
+    order = sorted(range(len(groups)), key=lambda i: groups[i].max() - groups[i].min(),
+                   reverse=True)[:MAX_CATEGORIES]
+    groups = [groups[i] for i in order]
+    labels = [labels[i] for i in order]
+
+    height = max(3.4, 0.46 * len(groups) + 1.6)
+    fig, ax = plt.subplots(figsize=(9, height), dpi=200)
+    fig.patch.set_facecolor(t["surface"])
+
+    # matplotlib 3.11 renamed these: labels -> tick_labels, vert -> orientation.
+    bp = ax.boxplot(groups, orientation="horizontal", tick_labels=labels,
+                    patch_artist=True, widths=0.55, showfliers=True)
+    for patch in bp["boxes"]:
+        patch.set_facecolor(t["series"])
+        patch.set_edgecolor(t["surface"])
+        patch.set_linewidth(1.5)
+    for part_name in ("whiskers", "caps"):
+        for item in bp[part_name]:
+            item.set_color(t["baseline"])
+            item.set_linewidth(1.2)
+    for med in bp["medians"]:
+        med.set_color(t["surface"])
+        med.set_linewidth(2)
+    for flier in bp["fliers"]:
+        flier.set(marker="o", markersize=3.5, markerfacecolor=t["series_set"][2],
+                  markeredgecolor="none", alpha=0.85)
+
+    _style_axes(ax, t, horizontal=True)
+    ax.set_title(title, fontsize=12, color=t["ink_primary"], loc="left", pad=12)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: _human_number(v)))
+
+    notes = ["Box shows the middle 50% of values, the line inside is the median, "
+             "and the dots are outliers beyond 1.5x the interquartile range."]
+
+    # When groups span orders of magnitude, a linear axis flattens all but the
+    # largest into an unreadable sliver.
+    all_positive = all((g > 0).all() for g in groups)
+    spread = _magnitude_spread(groups)
+    if all_positive and spread > 1000:
+        ax.set_xscale("log")
+        notes.append(
+            f"The horizontal axis is logarithmic: the largest group is around "
+            f"{_human_number(spread)}x the smallest, and a linear axis would "
+            "compress most of the groups into a single line."
+        )
+    fig.tight_layout()
+    return fig, notes
+
+
+def _magnitude_spread(groups: list) -> float:
+    """Ratio between the largest and smallest group medians."""
+    medians = [float(pd.Series(g).median()) for g in groups if len(g)]
+    medians = [m for m in medians if m > 0]
+    if len(medians) < 2:
+        return 1.0
+    return max(medians) / min(medians)
+
+
 def _render_grouped(df, label_col: str, measures: list[str], title: str,
                     t: dict[str, Any], horizontal: bool):
     """Grouped bars for a comparison of two or three measures.

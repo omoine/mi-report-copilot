@@ -44,7 +44,7 @@ class Session:
         self.report: dict[str, Any] = {}
         self.history: list[dict[str, str]] = []
         self.last_table: Any = None  # raw result, for re-rendering the print chart
-        self.last_chart_columns: tuple = (None, None)  # (measure_columns, label_columns)
+        self.last_result: dict[str, Any] | None = None  # full query result
 
     def log(self, role: str, content: str) -> None:
         self.history.append({"role": role, "content": content,
@@ -101,7 +101,7 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
         return [v for v in (value or []) if v]
 
     mode = (query.get("mode") or "aggregate").lower()
-    if mode not in {"aggregate", "list"}:
+    if mode not in {"aggregate", "list", "distribution"}:
         mode = "aggregate"
 
     measures = query.get("measures") or []
@@ -210,7 +210,14 @@ def _summarise_query(query: dict[str, Any], chart_type: str) -> str:
     view_name = data_access.VIEW_SHEETS[query["view"]]
     parts: list[str] = []
 
-    if query.get("mode") == "list":
+    if query.get("mode") == "distribution":
+        measures = query.get("measures") or []
+        target = (measures[0].get("column") if measures else None) or "the measure"
+        parts.append(f"distribution of {target}")
+        parts.append(f"across the {view_name}")
+        if query.get("group_by"):
+            parts.append("compared by " + ", ".join(query["group_by"]))
+    elif query.get("mode") == "list":
         cols = query.get("columns") or []
         shown = ", ".join(cols[:5]) + ("..." if len(cols) > 5 else "")
         parts.append(f"list of rows from the {view_name}")
@@ -259,17 +266,14 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
     table = result["table"]
     title = _title_for(interp)
     # The browser gets the dark theme; the PDF re-renders light at export time.
-    chart = report_builder.build_chart(table, interp["chart_type"], title,
-                                       EXPORT_DIR, session.id, theme="dark",
-                                       measure_columns=result.get("measure_columns"),
-                                       label_columns=result.get("label_columns"))
+    chart = _render_for(result, interp, title, session, theme="dark")
     display_table = report_builder.format_table_for_display(table)
     # Kept so export can re-render the chart for print without re-querying.
     session.last_table = table
 
     narrative = _narrative(provider, session, interp, display_table, result["provenance"])
 
-    session.last_chart_columns = (result.get("measure_columns"), result.get("label_columns"))
+    session.last_result = result
     session.report = {
         "title": title,
         "user_query": session.user_query,
@@ -289,9 +293,36 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
     return _report_payload(session)
 
 
+def _render_for(result: dict[str, Any], interp: dict[str, Any], title: str,
+                session: Session, theme: str) -> dict[str, Any]:
+    """Pick the right renderer for the query mode."""
+    if result.get("mode") == "distribution" and result.get("raw_values") is not None:
+        raw = result["raw_values"]
+        column = result["provenance"].get("measure")
+        labels = result.get("label_columns") or []
+        group_col = labels[0] if labels and labels[0] in raw.columns else None
+        return report_builder.render_distribution(
+            raw, column, title, EXPORT_DIR, session.id,
+            theme=theme, group_col=group_col,
+        )
+    return report_builder.build_chart(
+        result["table"], interp["chart_type"], title, EXPORT_DIR, session.id,
+        theme=theme, measure_columns=result.get("measure_columns"),
+        label_columns=result.get("label_columns"),
+    )
+
+
 def _title_for(interp: dict[str, Any]) -> str:
     query = interp["query"]
     view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
+
+    if query.get("mode") == "distribution":
+        measures = query.get("measures") or []
+        target = (measures[0].get("column") if measures else None) or "values"
+        title = f"Distribution of {target}"
+        if query.get("group_by"):
+            title += " by " + ", ".join(query["group_by"])
+        return title
 
     if query.get("mode") == "list":
         title = f"{view_name} records"
@@ -387,13 +418,9 @@ def export(session: Session) -> dict[str, Any]:
 
     # Re-render the chart light for print. The on-screen chart is dark, which
     # would waste ink and read wrong on paper.
-    if session.last_table is not None and report.get("chart_path"):
-        measure_cols, label_cols = session.last_chart_columns
-        print_chart = report_builder.build_chart(
-            session.last_table, session.interpretation["chart_type"],
-            report["title"], EXPORT_DIR, session.id, theme="light",
-            measure_columns=measure_cols, label_columns=label_cols,
-        )
+    if session.last_result is not None and report.get("chart_path"):
+        print_chart = _render_for(session.last_result, session.interpretation,
+                                  report["title"], session, theme="light")
         if print_chart.get("chart_path"):
             report["chart_path"] = print_chart["chart_path"]
 

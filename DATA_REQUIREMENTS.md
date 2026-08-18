@@ -82,6 +82,23 @@ column names, types, domains. I can synthesise volume once I know the shape.
 
 The first two are worth more than the rest combined.
 
+## Priority 2b — one missing column that breaks cross-currency analysis
+
+The Nostro Transfer View carries **no display-currency amount**. `Value Amount`
+is always in the transfer's own currency, so any breakdown of that view across
+currencies compares unlike units — one JPY against one GBP. Totals across
+currencies from that view are not meaningful figures.
+
+This shows up immediately: a distribution of transfer value by currency puts JPY
+orders of magnitude above everything else, purely because of the unit. The tool
+now flags this and switches to a logarithmic axis, but the honest fix is data.
+
+**Add `Value Amount (Display)` and `Display CCY` to the nostro transfer extract**,
+translated the same way the Client and Business Ledger views already are. Both of
+those views have it; only this one does not. It is likely a one-line change to
+whatever produces the extract, and it unlocks every cross-currency question on
+transfer flow.
+
 ## Priority 3 — linkage between views
 
 The three views currently share no reliable key, so the tool cannot answer

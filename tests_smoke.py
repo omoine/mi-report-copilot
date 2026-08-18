@@ -150,6 +150,47 @@ grouped_chart = report_builder.build_chart(
 check("grouped bar chart renders",
       grouped_chart["chart_path"] and grouped_chart["chart_path"].exists())
 
+print("\n5e. Distribution / statistics")
+dist = data_access.run_query("nostro_transfer", mode="distribution",
+                             measures=[{"column": "Value Amount"}])
+stats = dict(zip(dist["table"]["Statistic"], dist["table"]["Value"]))
+check("distribution returns the standard statistics",
+      {"mean", "median", "std", "p25", "p75", "p95"} <= set(stats),
+      f"{len(stats)} statistics")
+check("sigma bounds reported",
+      "mean_minus_3std" in stats and "mean_plus_3std" in stats)
+check("actual coverage reported (not assumed normal)",
+      0 <= stats["within_1std_pct"] <= 100,
+      f"within 1 sigma: {stats['within_1std_pct']:.0f}% "
+      f"(normal would be ~68%), skew={stats['skew']:.2f}")
+check("median differs from mean on skewed data", stats["mean"] != stats["median"],
+      f"mean={stats['mean']:,.0f} median={stats['median']:,.0f}")
+check("raw values carried for plotting", dist["raw_values"] is not None,
+      f"{len(dist['raw_values'])} values")
+
+hist = report_builder.render_distribution(
+    dist["raw_values"], "Value Amount", "Distribution of Value Amount", OUT, "smoke")
+check("histogram renders", hist["chart_path"] and hist["chart_path"].exists())
+check("histogram reports real sigma coverage",
+      any("standard deviation" in n for n in hist["notes"]),
+      hist["notes"][0][:80] if hist["notes"] else "no notes")
+
+grouped_dist = data_access.run_query("nostro_transfer", mode="distribution",
+                                     measures=[{"column": "Value Amount"}],
+                                     group_by=["Currency"])
+check("grouped distribution returns one row per group",
+      len(grouped_dist["table"]) > 1, f"{len(grouped_dist['table'])} groups")
+box = report_builder.render_distribution(
+    grouped_dist["raw_values"], "Value Amount", "Value by currency", OUT, "smoke",
+    group_col="Currency")
+check("box plot renders", box["chart_path"] and box["chart_path"].exists())
+
+pct = data_access.run_query("business_ledger", group_by=["Cashflow Type"],
+                            measures=[{"column": "Amount (Display)", "aggregation": "p95"},
+                                      {"column": "Amount (Display)", "aggregation": "median"}])
+check("percentile aggregations work", len(pct["table"].columns) >= 2,
+      str(list(pct["table"].columns)))
+
 print("\n6. Error handling")
 for label, kwargs in [
     ("unknown view", {"view": "nope"}),

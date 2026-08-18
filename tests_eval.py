@@ -58,6 +58,13 @@ QUESTIONS: list[tuple[str, str, str]] = [
     ("filtered", "Show ledger transactions over 10 million in display currency", "build"),
     ("filtered", "Client accounts where the reconciliation difference is not zero", "build"),
 
+    # --- distribution / statistics ---------------------------------------
+    ("stats", "Give me a statistical analysis of flow values: mean, median and "
+              "quantiles across -3 to +3 standard deviations", "build"),
+    ("stats", "What is the distribution of business ledger amounts?", "build"),
+    ("stats", "How does transfer size vary by currency? Show me the spread", "build"),
+    ("stats", "What is the 95th percentile of ledger amounts by cashflow type?", "build"),
+
     # --- should be declined ---------------------------------------------
     ("decline", "Show me intraday credit line utilisation against counterparty limits", "decline"),
     ("decline", "What is each counterparty's credit rating?", "decline"),
@@ -138,6 +145,12 @@ def evaluate(question: str, expectation: str) -> dict:
         if series_shown < 2:
             problems.append(
                 f"comparison shows {series_shown} series - needs two things side by side")
+    if category_of(question) == "stats":
+        # A statistic is a calculation over existing values, never a missing
+        # concept - declining one is the failure mode this category guards.
+        stat_words = ("distribution", "median", "percentile", "p95", "std", "quantile")
+        if mode != "distribution" and not any(w in summary for w in stat_words):
+            problems.append(f"statistical question ran a plain {mode} query")
     if category_of(question) == "ranking" and not rep.get("provenance", {}).get("limit"):
         if len(rows) > 10:
             problems.append("ranking question returned everything, no top-N limit")
