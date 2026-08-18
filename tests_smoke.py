@@ -79,6 +79,77 @@ r3 = data_access.run_query("business_ledger", group_by=["Cashflow Type"],
                            measure="Amount (Display)", aggregation="sum")
 check("ledger group-by works", len(r3["table"]) > 1, f"{len(r3['table'])} types")
 
+print("\n5b. List mode (show me the records)")
+lst = data_access.run_query(
+    "client", mode="list",
+    filters=[{"column": "Match", "operator": "eq", "value": "unmatched"}],
+    columns=["Account", "Account Name", "Difference (Local)"],
+    sort_by="Difference (Local)", sort_desc=True)
+check("list returns rows not a count", len(lst["table"]) == 3, f"{len(lst['table'])} rows")
+check("list returns requested columns",
+      list(lst["table"].columns) == ["Account", "Account Name", "Difference (Local)"],
+      str(list(lst["table"].columns)))
+check("list mode recorded in provenance", lst["provenance"]["mode"] == "list")
+
+top = data_access.run_query("business_ledger", mode="list",
+                            columns=["Transaction Reference", "Amount (Display)"],
+                            sort_by="Amount (Display)", sort_desc=True, limit=10)
+check("top-N limit applied", len(top["table"]) == 10, f"{len(top['table'])} rows")
+vals = top["table"]["Amount (Display)"].tolist()
+check("top-N actually sorted descending", vals == sorted(vals, reverse=True))
+
+print("\n5c. Time bucketing (the intraday profile)")
+raw = data_access.run_query("business_ledger", group_by=["Transaction Timestamp"],
+                            measures=[{"column": "Amount (Display)", "aggregation": "sum"}])
+hourly = data_access.run_query(
+    "business_ledger",
+    time_bucket={"column": "Transaction Timestamp", "granularity": "hour"},
+    measures=[{"column": "Amount (Display)", "aggregation": "sum"}])
+check("raw timestamp grouping is degenerate (why bucketing exists)",
+      len(raw["table"]) > len(hourly["table"]),
+      f"raw={len(raw['table'])} groups vs hourly={len(hourly['table'])}")
+multi = (hourly["table"].iloc[:, 1] != 0).sum()
+check("hourly bucketing reduces group count",
+      len(hourly["table"]) < len(raw["table"]),
+      f"{len(raw['table'])} -> {len(hourly['table'])} buckets ({multi} non-zero). "
+      "NOTE: the sample data is too thin for a useful intraday profile - "
+      "see DATA_REQUIREMENTS.md")
+check("bucket column is labelled", "Transaction Timestamp (hour)" in hourly["table"].columns,
+      str(list(hourly["table"].columns)))
+
+daily = data_access.run_query(
+    "nostro_transfer",
+    time_bucket={"column": "Created Time", "granularity": "day"},
+    measures=[{"column": "Value Amount", "aggregation": "sum"}])
+check("day granularity works", len(daily["table"]) >= 1, f"{len(daily['table'])} days")
+
+try:
+    data_access.run_query("client", time_bucket={"column": "Account Name",
+                                                 "granularity": "hour"},
+                          measures=[{"column": "Credits (Local)"}])
+    check("bucketing a non-timestamp raises", False, "no error")
+except data_access.QueryError as exc:
+    check("bucketing a non-timestamp raises", True, str(exc)[:55])
+
+print("\n5d. Multi-measure comparison")
+cmp_result = data_access.run_query(
+    "client", group_by=["Currency"],
+    measures=[{"column": "Credits (Display)", "aggregation": "sum"},
+              {"column": "Debits (Display)", "aggregation": "sum"}])
+check("both measures present",
+      cmp_result["measure_columns"] == ["Credits (Display)", "Debits (Display)"],
+      str(cmp_result["measure_columns"]))
+check("grouped by currency", cmp_result["label_columns"] == ["Currency"])
+check("comparison table has 3 columns", len(cmp_result["table"].columns) == 3,
+      str(list(cmp_result["table"].columns)))
+
+grouped_chart = report_builder.build_chart(
+    cmp_result["table"], "bar", "Credits vs Debits", OUT, "smoke",
+    measure_columns=cmp_result["measure_columns"],
+    label_columns=cmp_result["label_columns"])
+check("grouped bar chart renders",
+      grouped_chart["chart_path"] and grouped_chart["chart_path"].exists())
+
 print("\n6. Error handling")
 for label, kwargs in [
     ("unknown view", {"view": "nope"}),

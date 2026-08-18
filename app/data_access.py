@@ -288,17 +288,107 @@ def _apply_filter(df: pd.DataFrame, spec: dict[str, Any]) -> pd.DataFrame:
     return df[ops[op](series)]
 
 
+AGGREGATIONS = {"sum", "mean", "count", "min", "max", "median"}
+
+# Pandas offset aliases for time bucketing, keyed by the words a user would use.
+TIME_GRANULARITIES = {
+    "minute": ("min", "%Y-%m-%d %H:%M"),
+    "15min": ("15min", "%Y-%m-%d %H:%M"),
+    "30min": ("30min", "%Y-%m-%d %H:%M"),
+    "hour": ("h", "%Y-%m-%d %H:00"),
+    "day": ("D", "%Y-%m-%d"),
+    "week": ("W", "%Y-%m-%d"),
+    "month": ("MS", "%Y-%m"),
+}
+
+
+def _require_column(df: pd.DataFrame, col: str, role: str, view: str) -> None:
+    if col not in df.columns:
+        raise QueryError(
+            f"Cannot use '{col}' as {role} - no such column. "
+            f"Available columns: {', '.join(get_frame(view).columns)}."
+        )
+
+
+def _as_numeric(df: pd.DataFrame, col: str) -> pd.DataFrame:
+    if pd.api.types.is_numeric_dtype(df[col]):
+        return df
+    coerced = pd.to_numeric(df[col], errors="coerce")
+    if coerced.notna().sum() == 0:
+        raise QueryError(f"Column '{col}' is not numeric, so it cannot be aggregated.")
+    return df.assign(**{col: coerced})
+
+
+def _apply_time_bucket(
+    df: pd.DataFrame, spec: dict[str, Any], view: str
+) -> tuple[pd.DataFrame, str]:
+    """Floor a timestamp column into buckets and return the new label column.
+
+    Without this, grouping by a raw timestamp yields one group per row, which
+    looks like a time series but carries no information.
+    """
+    col = spec.get("column")
+    _require_column(df, col, "a time bucket", view)
+    gran = str(spec.get("granularity") or "hour").lower()
+    if gran not in TIME_GRANULARITIES:
+        raise QueryError(
+            f"Unsupported time granularity '{gran}'. "
+            f"Use one of: {', '.join(TIME_GRANULARITIES)}."
+        )
+    freq, fmt = TIME_GRANULARITIES[gran]
+
+    stamps = pd.to_datetime(df[col], errors="coerce")
+    if stamps.notna().sum() == 0:
+        raise QueryError(f"Column '{col}' does not contain readable timestamps.")
+
+    label = f"{col} ({gran})"
+    bucketed = stamps.dt.floor(freq) if freq not in {"W", "MS"} else stamps.dt.to_period(
+        "W" if freq == "W" else "M"
+    ).dt.start_time
+    return df.assign(**{label: bucketed.dt.strftime(fmt)}), label
+
+
+def _normalise_measures(
+    measures: list[dict[str, Any]] | None, view: str, df: pd.DataFrame
+) -> list[dict[str, str]]:
+    """Coerce the measure list into [{column, aggregation, label}]."""
+    out: list[dict[str, str]] = []
+    for m in measures or []:
+        if isinstance(m, str):
+            m = {"column": m}
+        agg = str(m.get("aggregation") or "sum").lower()
+        if agg not in AGGREGATIONS:
+            raise QueryError(f"Unsupported aggregation '{agg}'.")
+        col = m.get("column")
+        if agg == "count" and not col:
+            out.append({"column": "", "aggregation": "count", "label": "count"})
+            continue
+        _require_column(df, col, "a measure", view)
+        out.append({"column": col, "aggregation": agg, "label": col})
+    return out
+
+
 def run_query(
     view: str,
+    mode: str = "aggregate",
     filters: list[dict[str, Any]] | None = None,
     group_by: list[str] | None = None,
-    measure: str | None = None,
-    aggregation: str = "sum",
+    time_bucket: dict[str, Any] | None = None,
+    measures: list[dict[str, Any]] | None = None,
+    columns: list[str] | None = None,
+    sort_by: str | None = None,
     sort_desc: bool = True,
     limit: int | None = None,
+    # Accepted for convenience; folded into `measures`.
+    measure: str | None = None,
+    aggregation: str | None = None,
 ) -> dict[str, Any]:
-    """Run a deterministic aggregation and return both the result table and a
-    provenance record describing exactly how it was produced."""
+    """Run a deterministic query and return the result plus a provenance record.
+
+    Two modes:
+      aggregate - group and summarise (optionally bucketing a timestamp)
+      list      - return matching rows as they are, sorted and limited
+    """
     df = get_frame(view)
     total_rows = len(df)
 
@@ -307,68 +397,132 @@ def run_query(
         df = _apply_filter(df, spec)
     rows_after_filters = len(df)
 
-    group_by = [g for g in (group_by or []) if g]
-    for col in group_by:
-        if col not in df.columns:
-            raise QueryError(
-                f"Cannot group by '{col}' - no such column. "
-                f"Available columns: {', '.join(get_frame(view).columns)}."
-            )
+    mode = (mode or "aggregate").lower()
+    if mode not in {"aggregate", "list"}:
+        raise QueryError(f"Unsupported mode '{mode}'. Use 'aggregate' or 'list'.")
 
-    aggregation = (aggregation or "sum").lower()
-    if aggregation not in {"sum", "mean", "count", "min", "max"}:
-        raise QueryError(f"Unsupported aggregation '{aggregation}'.")
+    # Fold the single-measure convenience form into the list form.
+    if measure or aggregation:
+        measures = measures or []
+        if not measures:
+            measures = [{"column": measure, "aggregation": aggregation or "sum"}]
 
-    if aggregation != "count":
-        measure = measure or DEFAULT_MEASURE[view]
-        if measure not in df.columns:
-            raise QueryError(
-                f"Measure '{measure}' does not exist. "
-                f"Available columns: {', '.join(get_frame(view).columns)}."
-            )
-        if not pd.api.types.is_numeric_dtype(df[measure]):
-            coerced = pd.to_numeric(df[measure], errors="coerce")
-            if coerced.notna().sum() == 0:
-                raise QueryError(f"Column '{measure}' is not numeric, so it cannot be aggregated.")
-            df = df.assign(**{measure: coerced})
-    else:
-        measure = None
+    label_columns: list[str] = []
+    measure_columns: list[str] = []
+    measures_note: str | None = None
 
-    if df.empty:
-        result = pd.DataFrame()
-    elif group_by:
-        if aggregation == "count":
-            result = df.groupby(group_by, dropna=False).size().reset_index(name="count")
-            value_col = "count"
-        else:
-            result = (
-                df.groupby(group_by, dropna=False)[measure]
-                .agg(aggregation)
-                .reset_index()
-            )
-            value_col = measure
-        result = result.sort_values(value_col, ascending=not sort_desc).reset_index(drop=True)
+    if mode == "list":
+        wanted = [c for c in (columns or []) if c]
+        for col in wanted:
+            _require_column(df, col, "a column", view)
+        result = df[wanted].copy() if wanted else df.copy()
+        if sort_by:
+            _require_column(df, sort_by, "a sort column", view)
+            sort_series = df[sort_by]
+            if sort_by not in result.columns:
+                result = result.assign(**{sort_by: sort_series})
+            result = result.sort_values(sort_by, ascending=not sort_desc)
+        result = result.reset_index(drop=True)
         if limit:
             result = result.head(limit)
+        label_columns = list(result.columns)
+        resolved_measures: list[dict[str, str]] = []
     else:
-        # No grouping: return a single-row scalar result. Convert numpy scalars
-        # to plain Python numbers so downstream type checks behave.
-        value = len(df) if aggregation == "count" else getattr(df[measure], aggregation)()
-        value = value.item() if hasattr(value, "item") else value
-        result = pd.DataFrame([{measure or "count": value}])
+        resolved_measures = _normalise_measures(measures, view, df)
+        if not resolved_measures:
+            resolved_measures = [
+                {"column": DEFAULT_MEASURE[view], "aggregation": "sum",
+                 "label": DEFAULT_MEASURE[view]}
+            ]
 
+        group_by = [g for g in (group_by or []) if g]
+        for col in group_by:
+            _require_column(df, col, "a grouping", view)
+
+        if time_bucket:
+            df, bucket_label = _apply_time_bucket(df, time_bucket, view)
+            group_by = [bucket_label] + group_by
+
+        for m in resolved_measures:
+            if m["aggregation"] != "count":
+                df = _as_numeric(df, m["column"])
+
+        if df.empty:
+            result = pd.DataFrame()
+        elif group_by:
+            frames = []
+            for m in resolved_measures:
+                if m["aggregation"] == "count":
+                    part = df.groupby(group_by, dropna=False).size().rename("count")
+                else:
+                    part = (df.groupby(group_by, dropna=False)[m["column"]]
+                            .agg(m["aggregation"]).rename(m["label"]))
+                frames.append(part)
+            result = pd.concat(frames, axis=1).reset_index()
+            measure_columns = [m["label"] for m in resolved_measures]
+            label_columns = group_by
+
+            # When one measure is split by a small categorical (DR vs CR, say),
+            # pivot it into columns. "Amount by sub branch and Dr/Cr mark" then
+            # reads as one row per sub branch with a DR and a CR column, which
+            # is what a comparison should look like.
+            pivoted = False
+            if (len(group_by) == 2 and len(measure_columns) == 1
+                    and result[group_by[1]].nunique() <= 4):
+                wide = result.pivot(index=group_by[0], columns=group_by[1],
+                                    values=measure_columns[0])
+                wide.columns = [str(c) for c in wide.columns]
+                result = wide.reset_index().fillna(0)
+                measure_columns = [c for c in result.columns if c != group_by[0]]
+                label_columns = [group_by[0]]
+                pivoted = True
+
+            # Sort by the named column if given, else the first measure.
+            order_col = sort_by if sort_by in result.columns else measure_columns[0]
+            result = result.sort_values(order_col, ascending=not sort_desc).reset_index(drop=True)
+            if limit:
+                result = result.head(limit)
+            if pivoted:
+                measures_note = f"split by {group_by[1]}"
+            else:
+                measures_note = None
+        else:
+            row = {}
+            for m in resolved_measures:
+                if m["aggregation"] == "count":
+                    row["count"] = len(df)
+                else:
+                    value = getattr(df[m["column"]], m["aggregation"])()
+                    row[m["label"]] = value.item() if hasattr(value, "item") else value
+            result = pd.DataFrame([row])
+            measure_columns = list(result.columns)
+
+    primary = resolved_measures[0] if mode == "aggregate" and resolved_measures else None
     return {
         "view": view,
         "sheet": VIEW_SHEETS[view],
         "table": result,
+        "mode": mode,
+        "label_columns": label_columns,
+        "measure_columns": measure_columns,
         "provenance": {
             "view": view,
             "sheet": VIEW_SHEETS[view],
             "source_file": DATA_FILE.name,
+            "mode": mode,
             "filters": filters,
-            "group_by": group_by,
-            "measure": measure,
-            "aggregation": aggregation,
+            "group_by": label_columns if mode == "aggregate" else [],
+            "time_bucket": time_bucket,
+            "measures": ([f"{m['aggregation']} of {m['column'] or 'rows'}"
+                          for m in resolved_measures]
+                         + ([measures_note] if mode == "aggregate" and measures_note else [])
+                         ) if mode == "aggregate" else [],
+            "columns": label_columns if mode == "list" else [],
+            "sort_by": sort_by,
+            "limit": limit,
+            # Kept for existing readers of the provenance block.
+            "measure": primary["column"] if primary else None,
+            "aggregation": primary["aggregation"] if primary else None,
             "rows_in_view": total_rows,
             "rows_after_filters": rows_after_filters,
             "rows_returned": len(result),

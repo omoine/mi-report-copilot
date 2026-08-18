@@ -44,6 +44,7 @@ class Session:
         self.report: dict[str, Any] = {}
         self.history: list[dict[str, str]] = []
         self.last_table: Any = None  # raw result, for re-rendering the print chart
+        self.last_chart_columns: tuple = (None, None)  # (measure_columns, label_columns)
 
     def log(self, role: str, content: str) -> None:
         self.history.append({"role": role, "content": content,
@@ -93,9 +94,33 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
     filters = query.get("filters") or []
     if not isinstance(filters, list):
         filters = []
-    group_by = query.get("group_by") or []
-    if isinstance(group_by, str):
-        group_by = [group_by]
+
+    def as_list(value: Any) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        return [v for v in (value or []) if v]
+
+    mode = (query.get("mode") or "aggregate").lower()
+    if mode not in {"aggregate", "list"}:
+        mode = "aggregate"
+
+    measures = query.get("measures") or []
+    if isinstance(measures, dict):
+        measures = [measures]
+    # Tolerate the older single-measure form.
+    if not measures and (query.get("measure") or query.get("aggregation")):
+        measures = [{"column": query.get("measure"),
+                     "aggregation": query.get("aggregation") or "sum"}]
+
+    # A listing that renders as a chart makes no sense; force the table.
+    if mode == "list":
+        chart_type = "table"
+
+    limit = query.get("limit")
+    if isinstance(limit, str) and limit.isdigit():
+        limit = int(limit)
+    if not isinstance(limit, int):
+        limit = None
 
     return {
         "understood": payload.get("understood", ""),
@@ -104,12 +129,15 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
         "chart_type": chart_type,
         "query": {
             "view": view,
+            "mode": mode,
             "filters": filters,
-            "group_by": [g for g in group_by if g],
-            "measure": query.get("measure"),
-            "aggregation": (query.get("aggregation") or "sum").lower(),
+            "group_by": as_list(query.get("group_by")),
+            "time_bucket": query.get("time_bucket") or None,
+            "measures": measures,
+            "columns": as_list(query.get("columns")),
+            "sort_by": query.get("sort_by"),
             "sort_desc": bool(query.get("sort_desc", True)),
-            "limit": query.get("limit"),
+            "limit": limit,
         },
     }
 
@@ -179,16 +207,40 @@ def _interpret_with_retry(
 
 def _summarise_query(query: dict[str, Any], chart_type: str) -> str:
     """Plain-English echo of the query, so the user can sanity-check it."""
-    measure = query.get("measure") or "number of rows"
-    agg = query.get("aggregation", "sum")
-    parts = [f"{agg} of {measure}", f"from the {data_access.VIEW_SHEETS[query['view']]}"]
-    if query.get("group_by"):
-        parts.append("grouped by " + ", ".join(query["group_by"]))
+    view_name = data_access.VIEW_SHEETS[query["view"]]
+    parts: list[str] = []
+
+    if query.get("mode") == "list":
+        cols = query.get("columns") or []
+        shown = ", ".join(cols[:5]) + ("..." if len(cols) > 5 else "")
+        parts.append(f"list of rows from the {view_name}")
+        if shown:
+            parts.append(f"showing {shown}")
+    else:
+        measures = query.get("measures") or []
+        described = [
+            f"{(m.get('aggregation') or 'sum')} of {m.get('column') or 'rows'}"
+            for m in measures
+        ] or ["sum"]
+        parts.append(" and ".join(described))
+        parts.append(f"from the {view_name}")
+        if query.get("time_bucket"):
+            tb = query["time_bucket"]
+            parts.append(f"bucketed by {tb.get('granularity', 'hour')} "
+                         f"on {tb.get('column')}")
+        if query.get("group_by"):
+            parts.append("grouped by " + ", ".join(query["group_by"]))
+
     if query.get("filters"):
         parts.append("filtered where " + "; ".join(
             f"{f.get('column')} {f.get('operator', 'eq')} {f.get('value')}"
             for f in query["filters"]))
-    parts.append(f"shown as a {chart_type}" if chart_type != "table" else "shown as a table")
+    if query.get("sort_by"):
+        parts.append(f"sorted by {query['sort_by']}"
+                     + (" descending" if query.get("sort_desc", True) else " ascending"))
+    if query.get("limit"):
+        parts.append(f"top {query['limit']}")
+    parts.append("shown as a table" if chart_type == "table" else f"shown as a {chart_type}")
     return ", ".join(parts) + "."
 
 
@@ -208,13 +260,16 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
     title = _title_for(interp)
     # The browser gets the dark theme; the PDF re-renders light at export time.
     chart = report_builder.build_chart(table, interp["chart_type"], title,
-                                       EXPORT_DIR, session.id, theme="dark")
+                                       EXPORT_DIR, session.id, theme="dark",
+                                       measure_columns=result.get("measure_columns"),
+                                       label_columns=result.get("label_columns"))
     display_table = report_builder.format_table_for_display(table)
     # Kept so export can re-render the chart for print without re-querying.
     session.last_table = table
 
     narrative = _narrative(provider, session, interp, display_table, result["provenance"])
 
+    session.last_chart_columns = (result.get("measure_columns"), result.get("label_columns"))
     session.report = {
         "title": title,
         "user_query": session.user_query,
@@ -236,11 +291,32 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
 
 def _title_for(interp: dict[str, Any]) -> str:
     query = interp["query"]
-    measure = query.get("measure") or "Row count"
-    agg = query.get("aggregation", "sum").title()
-    title = f"{agg} of {measure}" if query.get("measure") else "Count of records"
-    if query.get("group_by"):
-        title += " by " + ", ".join(query["group_by"])
+    view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
+
+    if query.get("mode") == "list":
+        title = f"{view_name} records"
+        if query.get("limit"):
+            title = f"Top {query['limit']} {view_name.lower()} records"
+        if query.get("sort_by"):
+            title += f" by {query['sort_by']}"
+        return title
+
+    measures = query.get("measures") or []
+    named = [m.get("column") for m in measures if m.get("column")]
+    if not named:
+        title = "Count of records"
+    elif len(named) == 1:
+        agg = (measures[0].get("aggregation") or "sum").title()
+        title = f"{agg} of {named[0]}"
+    else:
+        title = " vs ".join(named)
+
+    grouping = list(query.get("group_by") or [])
+    if query.get("time_bucket"):
+        tb = query["time_bucket"]
+        grouping = [f"{tb.get('column')} ({tb.get('granularity', 'hour')})"] + grouping
+    if grouping:
+        title += " by " + ", ".join(grouping)
     return title
 
 
@@ -312,9 +388,11 @@ def export(session: Session) -> dict[str, Any]:
     # Re-render the chart light for print. The on-screen chart is dark, which
     # would waste ink and read wrong on paper.
     if session.last_table is not None and report.get("chart_path"):
+        measure_cols, label_cols = session.last_chart_columns
         print_chart = report_builder.build_chart(
             session.last_table, session.interpretation["chart_type"],
             report["title"], EXPORT_DIR, session.id, theme="light",
+            measure_columns=measure_cols, label_columns=label_cols,
         )
         if print_chart.get("chart_path"):
             report["chart_path"] = print_chart["chart_path"]

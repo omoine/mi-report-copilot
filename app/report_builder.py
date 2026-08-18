@@ -29,10 +29,13 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 
-THEMES: dict[str, dict[str, str]] = {
+THEMES: dict[str, dict[str, Any]] = {
     "dark": {
         "surface": "#12121F",
         "series": "#A100FF",
+        # Multi-measure comparisons only. Validated as a set against this
+        # surface: contrast, lightness band, and colour-vision separation.
+        "series_set": ["#A100FF", "#199E70", "#D95926"],
         "ink_primary": "#FFFFFF",
         "ink_secondary": "#B9B6C9",
         "ink_muted": "#8A8899",
@@ -42,6 +45,7 @@ THEMES: dict[str, dict[str, str]] = {
     "light": {
         "surface": "#FCFCFB",
         "series": "#8A15E0",
+        "series_set": ["#8A15E0", "#1BAF7A", "#EB6834"],
         "ink_primary": "#0B0B0B",
         "ink_secondary": "#52514E",
         "ink_muted": "#898781",
@@ -85,15 +89,18 @@ def _style_axes(ax, t: dict[str, str], horizontal: bool) -> None:
         label.set_color(t["ink_secondary"])
 
 
-def _fold_tail(df: pd.DataFrame, label_col: str, value_col: str) -> tuple[pd.DataFrame, bool]:
+def _fold_tail(df: pd.DataFrame, label_col: str,
+               value_cols: list[str]) -> tuple[pd.DataFrame, bool]:
     """Keep the largest categories; fold the remainder into a single 'Other' row
     rather than rendering an unreadable number of marks."""
     if len(df) <= MAX_CATEGORIES:
         return df, False
     head = df.head(MAX_CATEGORIES - 1).copy()
-    tail_total = df.iloc[MAX_CATEGORIES - 1 :][value_col].sum()
-    other = pd.DataFrame([{label_col: f"Other ({len(df) - MAX_CATEGORIES + 1})", value_col: tail_total}])
-    return pd.concat([head, other], ignore_index=True), True
+    tail = df.iloc[MAX_CATEGORIES - 1 :]
+    other = {label_col: f"Other ({len(df) - MAX_CATEGORIES + 1})"}
+    for col in value_cols:
+        other[col] = tail[col].sum()
+    return pd.concat([head, pd.DataFrame([other])], ignore_index=True), True
 
 
 def _render_hero(value: float, caption: str, out_path: Path, t: dict[str, str]) -> None:
@@ -120,6 +127,8 @@ def build_chart(
     out_dir: Path,
     session_id: str,
     theme: str | None = None,
+    measure_columns: list[str] | None = None,
+    label_columns: list[str] | None = None,
 ) -> dict[str, Any]:
     """Render the chart and return its path plus notes about what was done.
 
@@ -152,9 +161,20 @@ def build_chart(
         return {"chart_path": None, "chart_type": "table",
                 "notes": ["Presented as a table; no chart was requested."]}
 
-    # Label = the grouping column(s); value = the final (aggregated) column.
-    value_col = table.columns[-1]
-    label_cols = list(table.columns[:-1])
+    # The query engine names which columns are measures; fall back to the
+    # last-column convention when it does not.
+    measures = [c for c in (measure_columns or []) if c in table.columns]
+    if not measures:
+        measures = [table.columns[-1]]
+    label_cols = [c for c in (label_columns or list(table.columns[:-1]))
+                  if c in table.columns and c not in measures]
+    if not label_cols:
+        label_cols = [c for c in table.columns if c not in measures][:1]
+    if not label_cols:
+        return {"chart_path": None, "chart_type": "table",
+                "notes": ["No grouping column to plot against; shown as a table."]}
+
+    value_col = measures[0]
     plot_df = table.copy()
     if len(label_cols) > 1:
         plot_df["__label__"] = plot_df[label_cols].astype(str).agg(" / ".join, axis=1)
@@ -163,18 +183,42 @@ def build_chart(
         label_col = label_cols[0]
         plot_df[label_col] = plot_df[label_col].astype(str)
 
-    if not pd.api.types.is_numeric_dtype(plot_df[value_col]):
+    numeric_measures = [m for m in measures if pd.api.types.is_numeric_dtype(plot_df[m])]
+    if not numeric_measures:
         return {"chart_path": None, "chart_type": "table",
                 "notes": [f"Column '{value_col}' is not numeric, so the result is shown as a table."]}
+    measures = numeric_measures
+    value_col = measures[0]
 
-    plot_df, folded = _fold_tail(plot_df, label_col, value_col)
-    if folded:
-        notes.append(
-            f"Only the largest {MAX_CATEGORIES - 1} categories are charted; the remainder "
-            "are combined into a single 'Other' bar. The full breakdown is in the table."
-        )
-
+    # A time series must never be folded into an "Other" bucket - the x axis is
+    # chronological, so the tail is "later", not "smaller".
     if chart_type == "line":
+        if len(plot_df) > 40:
+            notes.append(
+                f"{len(plot_df)} time buckets are plotted, which is dense to read. "
+                "A coarser granularity (day rather than hour) would show the shape "
+                "more clearly."
+            )
+    else:
+        plot_df, folded = _fold_tail(plot_df, label_col, measures)
+        if folded:
+            notes.append(
+                f"Only the largest {MAX_CATEGORIES - 1} categories are charted; the remainder "
+                "are combined into a single 'Other' bar. The full breakdown is in the table."
+            )
+
+    # More than one measure is a comparison: grouped bars with a legend.
+    if len(measures) > 1:
+        if len(measures) > len(t["series_set"]):
+            kept = len(t["series_set"])
+            notes.append(
+                f"Only the first {kept} measures are charted; plotting more would need "
+                "colours that cannot be told apart reliably. The table shows all of them."
+            )
+            measures = measures[:kept]
+        fig = _render_grouped(plot_df, label_col, measures, title, t,
+                              horizontal=(chart_type == "barh"))
+    elif chart_type == "line":
         fig = _render_line(plot_df, label_col, value_col, title, t)
     elif chart_type == "barh":
         fig = _render_barh(plot_df, label_col, value_col, title, t)
@@ -241,6 +285,57 @@ def _render_barh(df, label_col: str, value_col: str, title: str, t: dict[str, st
     return fig
 
 
+def _render_grouped(df, label_col: str, measures: list[str], title: str,
+                    t: dict[str, Any], horizontal: bool):
+    """Grouped bars for a comparison of two or three measures.
+
+    Identity is never colour-alone: a legend is always present, and the 2px
+    surface gap between adjacent bars keeps them separable.
+    """
+    n = len(measures)
+    count = len(df)
+    if horizontal:
+        height = max(3.2, 0.30 * count * n + 1.6)
+        fig, ax = plt.subplots(figsize=(9, height), dpi=200)
+    else:
+        fig, ax = plt.subplots(figsize=(9, 4.9), dpi=200)
+    fig.patch.set_facecolor(t["surface"])
+
+    span = 0.78
+    width = span / n
+    positions = range(count)
+
+    for i, measure in enumerate(measures):
+        offset = -span / 2 + width * (i + 0.5)
+        colour = t["series_set"][i]
+        locs = [p + offset for p in positions]
+        if horizontal:
+            ax.barh(locs, df[measure], height=width * 0.9, color=colour, label=measure)
+        else:
+            ax.bar(locs, df[measure], width=width * 0.9, color=colour, label=measure)
+
+    if horizontal:
+        ax.set_yticks(list(positions))
+        ax.set_yticklabels(df[label_col].astype(str))
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: _human_number(v)))
+    else:
+        ax.set_xticks(list(positions))
+        ax.set_xticklabels(df[label_col].astype(str))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: _human_number(v)))
+        if df[label_col].astype(str).str.len().max() > 8:
+            plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
+
+    _style_axes(ax, t, horizontal=horizontal)
+    ax.set_title(title, fontsize=12, color=t["ink_primary"], loc="left", pad=12)
+
+    legend = ax.legend(frameon=False, fontsize=9, loc="upper right", ncol=min(n, 3))
+    for text in legend.get_texts():
+        text.set_color(t["ink_secondary"])
+
+    fig.tight_layout()
+    return fig
+
+
 def _render_line(df, label_col: str, value_col: str, title: str, t: dict[str, str]):
     fig, ax = plt.subplots(figsize=(9, 4.6), dpi=200)
     fig.patch.set_facecolor(t["surface"])
@@ -250,6 +345,12 @@ def _render_line(df, label_col: str, value_col: str, title: str, t: dict[str, st
     _style_axes(ax, t, horizontal=False)
     ax.set_title(title, fontsize=12, color=t["ink_primary"], loc="left", pad=12)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: _human_number(v)))
+
+    # Thin the tick labels rather than letting them collide on a dense series.
+    if len(df) > 12:
+        step = max(1, len(df) // 10)
+        ax.set_xticks(range(0, len(df), step))
+        ax.set_xticklabels(df[label_col].astype(str).iloc[::step])
     if df[label_col].astype(str).str.len().max() > 8:
         plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
 
