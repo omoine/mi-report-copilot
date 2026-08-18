@@ -1,13 +1,16 @@
 """Chart rendering for MI reports.
 
-Design decisions follow the data-visualisation reference used across this build:
+Design decisions follow DESIGN.md:
 
-- Every chart here plots ONE measure, so it is a single-series chart: one hue
-  (categorical slot 1), no legend, and no value-ramp across nominal categories.
+- Every chart here plots ONE measure, so it is a single-series chart: one hue,
+  no legend, and no value-ramp across nominal categories.
 - A scalar result renders as a hero number, not a one-bar bar chart.
 - There is no pie option. For part-to-whole a horizontal bar is used instead:
   bars compare magnitudes more accurately, and a multi-colour pie could not clear
   the colour-separation gate for colour-vision deficiency at six segments.
+- Two themes, each validated against the surface it renders on. The web UI is
+  dark; the PDF is light, because a dark report wastes ink and reads wrong when
+  printed. Dark is a selected theme, not an inversion.
 - Grid and axes are recessive hairlines; marks are thin; values are direct-labelled
   because a PDF has no tooltip to fall back on.
 """
@@ -26,17 +29,34 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 
-# Palette (light mode) from the reference instance.
-SURFACE = "#fcfcfb"
-SERIES_1 = "#2a78d6"
-INK_PRIMARY = "#0b0b0b"
-INK_SECONDARY = "#52514e"
-INK_MUTED = "#898781"
-GRIDLINE = "#e1e0d9"
-BASELINE = "#c3c2b7"
+THEMES: dict[str, dict[str, str]] = {
+    "dark": {
+        "surface": "#12121F",
+        "series": "#A100FF",
+        "ink_primary": "#FFFFFF",
+        "ink_secondary": "#B9B6C9",
+        "ink_muted": "#8A8899",
+        "gridline": "#252336",
+        "baseline": "#3A3750",
+    },
+    "light": {
+        "surface": "#FCFCFB",
+        "series": "#8A15E0",
+        "ink_primary": "#0B0B0B",
+        "ink_secondary": "#52514E",
+        "ink_muted": "#898781",
+        "gridline": "#E1E0D9",
+        "baseline": "#C3C2B7",
+    },
+}
+DEFAULT_THEME = "dark"
 
 FONT_STACK = ["Segoe UI", "DejaVu Sans", "sans-serif"]
 MAX_CATEGORIES = 15  # beyond this the tail folds into "Other"
+
+
+def _theme(name: str | None) -> dict[str, str]:
+    return THEMES.get(name or DEFAULT_THEME, THEMES[DEFAULT_THEME])
 
 
 def _human_number(value: float) -> str:
@@ -50,19 +70,19 @@ def _human_number(value: float) -> str:
     return f"{value:,.2f}"
 
 
-def _style_axes(ax, horizontal: bool) -> None:
-    ax.set_facecolor(SURFACE)
+def _style_axes(ax, t: dict[str, str], horizontal: bool) -> None:
+    ax.set_facecolor(t["surface"])
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
     for spine in ("left", "bottom"):
-        ax.spines[spine].set_color(BASELINE)
+        ax.spines[spine].set_color(t["baseline"])
         ax.spines[spine].set_linewidth(1.0)
     # Solid hairline grid on the value axis only - never dashed.
-    ax.grid(axis="x" if horizontal else "y", color=GRIDLINE, linewidth=1.0, alpha=1.0)
+    ax.grid(axis="x" if horizontal else "y", color=t["gridline"], linewidth=1.0, alpha=1.0)
     ax.set_axisbelow(True)
-    ax.tick_params(colors=INK_MUTED, labelsize=9, length=0)
+    ax.tick_params(colors=t["ink_muted"], labelsize=9, length=0)
     for label in ax.get_xticklabels() + ax.get_yticklabels():
-        label.set_color(INK_SECONDARY)
+        label.set_color(t["ink_secondary"])
 
 
 def _fold_tail(df: pd.DataFrame, label_col: str, value_col: str) -> tuple[pd.DataFrame, bool]:
@@ -76,20 +96,20 @@ def _fold_tail(df: pd.DataFrame, label_col: str, value_col: str) -> tuple[pd.Dat
     return pd.concat([head, other], ignore_index=True), True
 
 
-def _render_hero(value: float, caption: str, out_path: Path) -> None:
+def _render_hero(value: float, caption: str, out_path: Path, t: dict[str, str]) -> None:
     """A single number is a stat tile, not a chart."""
     fig, ax = plt.subplots(figsize=(9, 2.6), dpi=200)
-    fig.patch.set_facecolor(SURFACE)
-    ax.set_facecolor(SURFACE)
+    fig.patch.set_facecolor(t["surface"])
+    ax.set_facecolor(t["surface"])
     ax.axis("off")
     # Counts read as whole numbers; money keeps two decimals.
     text = f"{value:,.0f}" if float(value).is_integer() else f"{value:,.2f}"
     ax.text(0.5, 0.62, text, ha="center", va="center",
-            fontsize=44, color=INK_PRIMARY, fontfamily=FONT_STACK)
+            fontsize=46, color=t["ink_primary"], fontfamily=FONT_STACK)
     ax.text(0.5, 0.18, caption, ha="center", va="center",
-            fontsize=11, color=INK_SECONDARY, fontfamily=FONT_STACK)
+            fontsize=11, color=t["ink_secondary"], fontfamily=FONT_STACK)
     fig.tight_layout()
-    fig.savefig(out_path, facecolor=SURFACE, bbox_inches="tight")
+    fig.savefig(out_path, facecolor=t["surface"], bbox_inches="tight")
     plt.close(fig)
 
 
@@ -99,17 +119,20 @@ def build_chart(
     title: str,
     out_dir: Path,
     session_id: str,
+    theme: str | None = None,
 ) -> dict[str, Any]:
     """Render the chart and return its path plus notes about what was done.
 
     Returns chart_path=None for table-only output.
     """
+    t = _theme(theme)
     plt.rcParams["font.family"] = FONT_STACK
     out_dir.mkdir(parents=True, exist_ok=True)
     # Microsecond precision: a refine can rebuild within the same second, and a
     # second-precision name would silently overwrite the previous chart.
     stamp = dt.datetime.now().strftime("%H%M%S%f")
-    out_path = out_dir / f"chart_{session_id}_{stamp}.png"
+    suffix = f"_{theme}" if theme and theme != DEFAULT_THEME else ""
+    out_path = out_dir / f"chart_{session_id}_{stamp}{suffix}.png"
     notes: list[str] = []
 
     if table.empty:
@@ -121,7 +144,7 @@ def build_chart(
         value = table.iloc[0, 0]
         # pd.api.types.is_number covers numpy scalars, which do not subclass int.
         if pd.api.types.is_number(value):
-            _render_hero(float(value), title, out_path)
+            _render_hero(float(value), title, out_path, t)
             return {"chart_path": out_path, "chart_type": "stat",
                     "notes": ["Rendered as a single headline figure rather than a one-bar chart."]}
 
@@ -152,24 +175,24 @@ def build_chart(
         )
 
     if chart_type == "line":
-        fig = _render_line(plot_df, label_col, value_col, title)
+        fig = _render_line(plot_df, label_col, value_col, title, t)
     elif chart_type == "barh":
-        fig = _render_barh(plot_df, label_col, value_col, title)
+        fig = _render_barh(plot_df, label_col, value_col, title, t)
     else:
-        fig = _render_bar(plot_df, label_col, value_col, title)
+        fig = _render_bar(plot_df, label_col, value_col, title, t)
 
-    fig.savefig(out_path, facecolor=SURFACE, bbox_inches="tight")
+    fig.savefig(out_path, facecolor=t["surface"], bbox_inches="tight")
     plt.close(fig)
     return {"chart_path": out_path, "chart_type": chart_type, "notes": notes}
 
 
-def _render_bar(df: pd.DataFrame, label_col: str, value_col: str, title: str):
+def _render_bar(df, label_col: str, value_col: str, title: str, t: dict[str, str]):
     fig, ax = plt.subplots(figsize=(9, 4.6), dpi=200)
-    fig.patch.set_facecolor(SURFACE)
+    fig.patch.set_facecolor(t["surface"])
     # Single series -> one hue for every bar. Never a value-ramp on categories.
-    bars = ax.bar(df[label_col], df[value_col], color=SERIES_1, width=0.62)
-    _style_axes(ax, horizontal=False)
-    ax.set_title(title, fontsize=12, color=INK_PRIMARY, loc="left", pad=12)
+    bars = ax.bar(df[label_col], df[value_col], color=t["series"], width=0.62)
+    _style_axes(ax, t, horizontal=False)
+    ax.set_title(title, fontsize=12, color=t["ink_primary"], loc="left", pad=12)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: _human_number(v)))
 
     rotation = 30 if df[label_col].astype(str).str.len().max() > 8 else 0
@@ -184,20 +207,20 @@ def _render_bar(df: pd.DataFrame, label_col: str, value_col: str, title: str):
                     bar.get_height() + (offset if value >= 0 else -offset),
                     _human_number(value), ha="center",
                     va="bottom" if value >= 0 else "top",
-                    fontsize=8.5, color=INK_SECONDARY)
+                    fontsize=8.5, color=t["ink_secondary"])
     fig.tight_layout()
     return fig
 
 
-def _render_barh(df: pd.DataFrame, label_col: str, value_col: str, title: str):
+def _render_barh(df, label_col: str, value_col: str, title: str, t: dict[str, str]):
     # Largest at the top reads most naturally.
     df = df.iloc[::-1].reset_index(drop=True)
     height = max(3.0, 0.42 * len(df) + 1.4)
     fig, ax = plt.subplots(figsize=(9, height), dpi=200)
-    fig.patch.set_facecolor(SURFACE)
-    bars = ax.barh(df[label_col], df[value_col], color=SERIES_1, height=0.62)
-    _style_axes(ax, horizontal=True)
-    ax.set_title(title, fontsize=12, color=INK_PRIMARY, loc="left", pad=12)
+    fig.patch.set_facecolor(t["surface"])
+    bars = ax.barh(df[label_col], df[value_col], color=t["series"], height=0.62)
+    _style_axes(ax, t, horizontal=True)
+    ax.set_title(title, fontsize=12, color=t["ink_primary"], loc="left", pad=12)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: _human_number(v)))
 
     span = max(abs(df[value_col].max()), abs(df[value_col].min()), 1)
@@ -207,7 +230,7 @@ def _render_barh(df: pd.DataFrame, label_col: str, value_col: str, title: str):
                 bar.get_y() + bar.get_height() / 2,
                 _human_number(value), va="center",
                 ha="left" if value >= 0 else "right",
-                fontsize=8.5, color=INK_SECONDARY)
+                fontsize=8.5, color=t["ink_secondary"])
     # Headroom on whichever side carries labels, so a direct label is never
     # clipped by the axis or overlapped by the category names on the left.
     lo, hi = ax.get_xlim()
@@ -218,14 +241,14 @@ def _render_barh(df: pd.DataFrame, label_col: str, value_col: str, title: str):
     return fig
 
 
-def _render_line(df: pd.DataFrame, label_col: str, value_col: str, title: str):
+def _render_line(df, label_col: str, value_col: str, title: str, t: dict[str, str]):
     fig, ax = plt.subplots(figsize=(9, 4.6), dpi=200)
-    fig.patch.set_facecolor(SURFACE)
-    ax.plot(df[label_col], df[value_col], color=SERIES_1, linewidth=2.0,
-            marker="o", markersize=5, markerfacecolor=SERIES_1,
-            markeredgecolor=SURFACE, markeredgewidth=2)  # 2px surface ring
-    _style_axes(ax, horizontal=False)
-    ax.set_title(title, fontsize=12, color=INK_PRIMARY, loc="left", pad=12)
+    fig.patch.set_facecolor(t["surface"])
+    ax.plot(df[label_col], df[value_col], color=t["series"], linewidth=2.0,
+            marker="o", markersize=5, markerfacecolor=t["series"],
+            markeredgecolor=t["surface"], markeredgewidth=2)  # 2px surface ring
+    _style_axes(ax, t, horizontal=False)
+    ax.set_title(title, fontsize=12, color=t["ink_primary"], loc="left", pad=12)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: _human_number(v)))
     if df[label_col].astype(str).str.len().max() > 8:
         plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
@@ -235,7 +258,7 @@ def _render_line(df: pd.DataFrame, label_col: str, value_col: str, title: str):
         ax.annotate(_human_number(df[value_col].iloc[idx]),
                     (idx, df[value_col].iloc[idx]),
                     textcoords="offset points", xytext=(0, 9),
-                    ha="center", fontsize=8.5, color=INK_SECONDARY)
+                    ha="center", fontsize=8.5, color=t["ink_secondary"])
     fig.tight_layout()
     return fig
 

@@ -106,6 +106,12 @@ data/               the synthetic workbook
 exports/            generated charts and reports (git-ignored)
 ```
 
+## Design
+
+The visual system is documented in [DESIGN.md](DESIGN.md) — tokens, typography,
+shape, and the two validated chart themes. Change values there and in
+`static/styles.css` together.
+
 ## Design notes
 
 **Validate before confirming.** The model's chosen query is dry-run against the

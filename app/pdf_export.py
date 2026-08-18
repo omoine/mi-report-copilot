@@ -30,12 +30,14 @@ from reportlab.platypus import (
 
 from . import data_access
 
+# Light document, brand accent. See DESIGN.md: the PDF deliberately stays light
+# while the web UI is dark, because this is a report meant to be printed.
 INK_PRIMARY = colors.HexColor("#0b0b0b")
 INK_SECONDARY = colors.HexColor("#52514e")
 INK_MUTED = colors.HexColor("#898781")
-ACCENT = colors.HexColor("#2a78d6")
+ACCENT = colors.HexColor("#8A15E0")
 GRIDLINE = colors.HexColor("#e1e0d9")
-SURFACE_ALT = colors.HexColor("#f9f9f7")
+SURFACE_ALT = colors.HexColor("#f7f4fb")
 
 PAGE_SIZE = landscape(A4)
 MARGIN = 16 * mm

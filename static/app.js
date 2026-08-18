@@ -153,8 +153,8 @@ function renderReport(data) {
     ${escapeHtml(p.aggregation || '')} of ${escapeHtml(p.measure || 'row count')} &middot;
     executed ${escapeHtml(p.executed_at || '')}</div>`;
 
-  html += `<div style="margin-top:14px">
-      <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:0 0 6px">Fine-tune this report</h2>
+  html += `<div style="margin-top:18px">
+      <div class="section-label">Fine-tune this report</div>
       <textarea id="refineInput" placeholder="e.g. show only JPY and USD, or switch to a horizontal bar chart"></textarea>
       <div class="btn-row">
         <button class="flow-btn" onclick="refine()">Apply change</button>
@@ -200,7 +200,7 @@ async function exportReport() {
       <p>${escapeHtml(data.message)}</p>
       <div class="downloads">
         <a href="/api/download/${encodeURIComponent(data.pdf)}" download>Download PDF report</a>
-        <a href="/api/download/${encodeURIComponent(data.markdown)}" download>Download Markdown documentation</a>
+        <a class="alt" href="/api/download/${encodeURIComponent(data.markdown)}" download>Download Markdown documentation</a>
       </div>`);
   } catch (err) {
     working.remove();
@@ -216,8 +216,9 @@ async function reset() {
   if (sessionId) await api('/api/reset', { session_id: sessionId }).catch(() => {});
   sessionId = null;
   conversation.innerHTML = `<div class="empty" id="emptyState">
+      <span class="empty-mark">Awaiting request</span>
       Describe the management view you need.<br>
-      The assistant will confirm what it understood &mdash; and flag any limitations &mdash; before building anything.
+      Nothing is built until you confirm the interpretation.
     </div>`;
   queryInput.value = '';
   queryInput.focus();
@@ -233,14 +234,15 @@ document.querySelectorAll('.ex').forEach((b) => {
 });
 
 fetch('/api/health').then((r) => r.json()).then((h) => {
-  const views = Object.entries(h.views).map(([k, v]) => `${k}: ${v} rows`).join(' &middot; ');
+  const views = Object.entries(h.views)
+    .map(([k, v]) => `${k.replace(/_/g, ' ')} &mdash; ${v} rows`).join('<br>');
   dataInfo.innerHTML = `<strong>${escapeHtml(h.data_file)}</strong><br>${views}<br>
     <em>${escapeHtml(h.data_classification)}</em>`;
   if (h.api_key_configured) {
-    statusBadge.textContent = `Connected · ${h.provider} · ${h.model}`;
+    statusBadge.textContent = `${h.provider} · ${h.model}`;
+    statusBadge.className = 'badge ok';
   } else {
-    statusBadge.style.borderColor = 'var(--critical)';
-    statusBadge.style.color = 'var(--critical)';
+    statusBadge.className = 'badge err';
     if (h.api_key_present_but_unusable) {
       statusBadge.textContent = 'API key not usable';
       addBlock(`<div class="who">Setup needed</div>

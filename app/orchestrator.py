@@ -43,6 +43,7 @@ class Session:
         self.interpretation: dict[str, Any] = {}
         self.report: dict[str, Any] = {}
         self.history: list[dict[str, str]] = []
+        self.last_table: Any = None  # raw result, for re-rendering the print chart
 
     def log(self, role: str, content: str) -> None:
         self.history.append({"role": role, "content": content,
@@ -205,8 +206,12 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
 
     table = result["table"]
     title = _title_for(interp)
-    chart = report_builder.build_chart(table, interp["chart_type"], title, EXPORT_DIR, session.id)
+    # The browser gets the dark theme; the PDF re-renders light at export time.
+    chart = report_builder.build_chart(table, interp["chart_type"], title,
+                                       EXPORT_DIR, session.id, theme="dark")
     display_table = report_builder.format_table_for_display(table)
+    # Kept so export can re-render the chart for print without re-querying.
+    session.last_table = table
 
     narrative = _narrative(provider, session, interp, display_table, result["provenance"])
 
@@ -303,6 +308,16 @@ def export(session: Session) -> dict[str, Any]:
     report["history"] = session.history
     if report.get("chart_notes"):
         report["chart_notes_md"] = "\n".join(f"> {n}" for n in report["chart_notes"])
+
+    # Re-render the chart light for print. The on-screen chart is dark, which
+    # would waste ink and read wrong on paper.
+    if session.last_table is not None and report.get("chart_path"):
+        print_chart = report_builder.build_chart(
+            session.last_table, session.interpretation["chart_type"],
+            report["title"], EXPORT_DIR, session.id, theme="light",
+        )
+        if print_chart.get("chart_path"):
+            report["chart_path"] = print_chart["chart_path"]
 
     stamp = dt.datetime.now()
     pdf_path = pdf_export.build_pdf(report, EXPORT_DIR, session.id, stamp)

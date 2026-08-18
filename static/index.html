@@ -3,14 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MI Report Copilot (POC)</title>
+<title>MI Report Copilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+
 <header>
-  <h1>MI Report Copilot</h1>
-  <span class="sub">Intraday liquidity management information &mdash; proof of concept</span>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">
+      Ask for a management view in plain English. The assistant confirms what it understood
+      and flags the limitations before building anything.
+    </p>
+  </div>
   <span class="badge" id="statusBadge">checking&hellip;</span>
 </header>
 
@@ -18,7 +32,8 @@
 
   <div class="panel" id="controlPanel">
     <h2>Ask for a view</h2>
-    <textarea id="queryInput" placeholder="e.g. Show me total nostro transfer value by currency for today"></textarea>
+    <textarea id="queryInput"
+      placeholder="e.g. Show me total nostro transfer value by currency"></textarea>
     <div class="btn-row">
       <button id="askBtn">Ask</button>
       <button id="resetBtn" class="secondary">Start over</button>
@@ -29,7 +44,7 @@
       <button class="ex">Total nostro transfer value by currency</button>
       <button class="ex">Which client accounts failed reconciliation?</button>
       <button class="ex">Business ledger amounts by cashflow type</button>
-      <button class="ex">Nostro transfers by sending strategy and status</button>
+      <button class="ex">Nostro transfers by sending strategy</button>
       <button class="ex">Top counterparties by ledger amount</button>
     </div>
 
@@ -41,8 +56,9 @@
 
   <div class="panel" id="conversation">
     <div class="empty" id="emptyState">
+      <span class="empty-mark">Awaiting request</span>
       Describe the management view you need.<br>
-      The assistant will confirm what it understood &mdash; and flag any limitations &mdash; before building anything.
+      Nothing is built until you confirm the interpretation.
     </div>
   </div>
 
