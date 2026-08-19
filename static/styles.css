@@ -32,6 +32,13 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* The user agent's [hidden] { display: none } loses to ANY author rule that
+   sets display, so an element "closed" by setting .hidden stays on screen -
+   .layout is a grid, .assistant-panel a flex. Both shipped that bug. This
+   restores the attribute's meaning once, for everything, instead of needing a
+   matching guard beside every new display rule. */
+[hidden] { display: none !important; }
+
 html { background: var(--page-bg); scroll-behavior: smooth; }
 
 body {

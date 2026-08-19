@@ -335,6 +335,11 @@ check("nothing the conversation applies is position:fixed",
 # user-agent's [hidden]{display:none} loses to any rule here. The panel stayed
 # on screen after "closing" for exactly this reason, and a test that checked
 # the property rather than the rendering reported it as working.
+check("the hidden attribute is honoured everywhere",
+      "[hidden] { display: none !important; }" in css,
+      "without this, any class that sets display keeps a 'hidden' element on "
+      "screen - .layout and .assistant-panel both shipped that bug")
+
 hidden_toggled = set(re.findall(r"(\w[\w-]*)\.hidden\s*=", assistant_js))
 for element in hidden_toggled:
     cls = f"assistant-{element}"
