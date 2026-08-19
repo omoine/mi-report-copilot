@@ -120,7 +120,7 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
         return [v for v in (value or []) if v]
 
     mode = (query.get("mode") or "aggregate").lower()
-    if mode not in {"aggregate", "list", "distribution"}:
+    if mode not in {"aggregate", "list", "distribution", "peak"}:
         mode = "aggregate"
 
     measures = query.get("measures") or []
@@ -251,7 +251,14 @@ def _summarise_query(query: dict[str, Any], chart_type: str) -> str:
     view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
     parts: list[str] = []
 
-    if query.get("mode") == "distribution":
+    if query.get("mode") == "peak":
+        measures = query.get("measures") or []
+        target = (measures[0].get("column") if measures else None) or "the position"
+        parts.append(f"The peak and lowest intraday position of {target} "
+                     f"in {view_name}, built up through each day")
+        if query.get("group_by"):
+            parts.append("separately for each " + " and ".join(query["group_by"]))
+    elif query.get("mode") == "distribution":
         measures = query.get("measures") or []
         target = (measures[0].get("column") if measures else None) or "the values"
         parts.append(f"How {target} is distributed across {view_name} records")
@@ -374,6 +381,12 @@ def _render_for(result: dict[str, Any], interp: dict[str, Any], title: str,
 def _title_for(interp: dict[str, Any]) -> str:
     query = interp["query"]
     view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
+
+    if query.get("mode") == "peak":
+        title = "Peak intraday position"
+        if query.get("group_by"):
+            title += " by " + ", ".join(query["group_by"])
+        return title
 
     if query.get("mode") == "distribution":
         measures = query.get("measures") or []

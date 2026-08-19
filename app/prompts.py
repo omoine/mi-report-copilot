@@ -26,7 +26,7 @@ Return a JSON object with exactly these keys:
   "understood": "<one or two sentences restating, in business language, the view you will build>",
   "query": {
     "view": "<one of: nostro_transfer | client | business_ledger>",
-    "mode": "<aggregate | list | distribution>",
+    "mode": "<aggregate | list | distribution | peak>",
     "filters": [{"column": "<exact column name>", "operator": "<eq|ne|gt|gte|lt|lte|in|not_in|contains|is_null|not_null>", "value": <string, number or list>},
                 {"any": [ {...}, {...} ]}],
 
@@ -62,6 +62,17 @@ CHOOSING THE MODE - this matters more than anything else:
   the status. Set chart_type to "table". Use sort_by + limit for "largest"/"top".
 - "aggregate" when the user wants a NUMBER OR A COMPARISON: totals, averages,
   counts, breakdowns, "by currency", "per entity", "how much", "how many".
+- "peak" when the user asks about an INTRADAY POSITION rather than a total:
+  "peak", "maximum intraday usage", "highest exposure during the day", "largest
+  negative position", "how much liquidity did we need", "intraday high or low".
+  The engine builds the running net position within each day, restarting every
+  morning, and reports the high, the low (which is the usage figure), the times
+  each occurred, and the closing position. Put the amount column in "measures"
+  and the dimension to split by - usually currency - in "group_by".
+  Do NOT answer these with a plain sum: a total tells you the volume that moved,
+  not the position that had to be funded, and a running total that never resets
+  describes a month-long accumulation rather than an intraday position.
+
 - "distribution" when the user asks HOW VALUES ARE SPREAD: "distribution of",
   "statistical analysis", "mean, median and quantiles", "standard deviations",
   "percentiles", "spread", "outliers", "is it skewed", "box plot", "histogram".
@@ -82,6 +93,11 @@ you would get one group per row. Use "time_bucket" instead. Anything about
 "by hour", "intraday profile", "over the day", "during the morning" means
 time_bucket with granularity "hour", chart_type "line".
 
+An hourly bucket automatically covers the most recent day in the data unless a
+date filter is given, because an hourly breakdown spanning a month is not an
+intraday view. If the user names a date, filter on it. If they want the whole
+period, use a "day" granularity instead.
+
 CALCULATIONS AND COMBINING:
 
 - "derived" adds a calculated column before filtering and grouping, so you can
@@ -89,6 +105,14 @@ CALCULATIONS AND COMBINING:
   ratios: net = credits + debits, variance = calculated - EOD, utilisation =
   used / limit. Name it in business language, since the name is what the reader
   sees.
+- AGEING. For anything about how long something has been waiting - a queue, a
+  backlog, "how old", "how long", "still outstanding", "aged" - add
+  {"name": "Waiting", "age_of": "<timestamp column>", "unit": "hours"}. That
+  produces both a numeric age and a banded version called "Waiting band"
+  (under 1h / 1-4h / 4-24h / over 24h) which you can put in "group_by".
+  For a queue, band and count rather than listing every item: how long things
+  have been waiting is the actionable part, who created them is not.
+  Age is measured from the most recent timestamp in the data, not today.
 - "add_share_of_total": true adds a "% of total" column next to the first
   measure. Use it for "share of", "proportion", "percentage of", "concentration".
 - "add_cumulative": true adds a running total in the sorted order. Use it for
@@ -231,6 +255,20 @@ WORKED EXAMPLES - match the shape of these.
   filters: [{"any":[{"column":"Transfer Status","operator":"eq","value":"FAILED"},
                     {"column":"Message Status","operator":"contains","value":"REJECTED"}]}],
   measures: [{"aggregation":"count"}], chart_type: "table"
+
+"What was our peak intraday liquidity usage by currency?"
+  mode: "peak", view: "business_ledger",
+  measures: [{"column":"Amount (Display)"}], group_by: ["CCY (Local)"],
+  limit: 15, chart_type: "table"
+
+"How long have transfers been sitting waiting for approval?"
+  mode: "aggregate", view: "nostro_transfer",
+  filters: [{"column":"Transfer Status","operator":"eq","value":"PENDING_APPROVAL"}],
+  derived: [{"name":"Waiting","age_of":"Created Time","unit":"hours"}],
+  group_by: ["Waiting band"],
+  measures: [{"aggregation":"count"},
+             {"column":"Value Amount (Display)","aggregation":"sum"}],
+  chart_type: "bar"
 
 "Statistical analysis of flow values - mean, median, quantiles, +/-3 sigma"
   mode: "distribution", view: "nostro_transfer",

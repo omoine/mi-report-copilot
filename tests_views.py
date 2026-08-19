@@ -59,8 +59,8 @@ VIEWS: list[tuple[int, str, str, str]] = [
 
     (7, "Approval pipeline",
      "What is waiting on a human, and how long has it been waiting?",
-     "How many transfers are pending approval, what is their total value, and "
-     "who created them?"),
+     "What is sitting in the approval queue, and how long has it been waiting? "
+     "I want to see the value at risk in each ageing band."),
 
     (8, "Entity and desk performance",
      "How does activity break down across legal entities and desks?",

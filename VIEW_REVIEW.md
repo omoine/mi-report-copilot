@@ -8,6 +8,30 @@ against what a liquidity manager would actually need. The raw transcript is
 being useful, and in two cases the output was confidently wrong in a way a
 reader could not detect.
 
+> ## Status after Priorities 1 and 2
+>
+> | View | Before | Now |
+> |---|---|---|
+> | 1 Intraday peak | 2,350 rows, wrong metric, currencies added together | **20 rows, peak/usage/timing per day and currency** |
+> | 2 Reconciliation | 481 rows | 481 rows — *Priority 3* |
+> | 3 Failures | **3 rows (the AND of an OR)** | **199 rows** |
+> | 4 Currency concentration | shares off a mixed-unit total | **shares on GBP equivalent** |
+> | 5 Counterparty | correct | correct |
+> | 6 Intraday timing | 477 rows across a month | **21 rows, one day** |
+> | 7 Approval queue | 40 rows by creator | **2 age bands, £27bn over 24h** |
+> | 8 Entity and desk | 899 rows | 1,150 rows — *Priority 3* |
+> | 9 Day-over-day | local currency summed | **FX-translated automatically** |
+> | 10 Largest movements | correct | correct |
+>
+> Seven of ten now answer the question asked. The three outstanding are all
+> Priority 3 — result size and executive framing, not correctness.
+>
+> Re-running view 4 showed why the currency work mattered beyond tidiness: USD
+> concentration was reported as 34.8% and is actually **49.7%**, while MXN read
+> as the third-largest exposure on 202bn pesos and is in fact **0.74%** of the
+> book. The old figure would have pointed a concentration discussion at the
+> wrong currency.
+
 ---
 
 ## The two findings that matter most

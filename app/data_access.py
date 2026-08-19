@@ -99,6 +99,25 @@ DISPLAY_EQUIVALENT = {
 ADDITIVE_AGGREGATIONS = {"sum", "mean", "median", "std", "var",
                          "p25", "p50", "p75", "p90", "p95", "p99"}
 
+# The timestamp that orders events within a day, per view.
+TIMESTAMP_COLUMN = {
+    "nostro_transfer": "Created Time",
+    "client": "Last Transaction Received",
+    "business_ledger": "Transaction Timestamp",
+}
+
+# Where direction lives in a separate column, so the amount is unsigned.
+SIGN_COLUMN = {
+    "business_ledger": {"column": "Debit/Credit Mark", "negative": "DR"},
+}
+
+# Granularities that describe activity within a day rather than across days.
+INTRADAY_GRANULARITIES = {"minute", "15min", "30min", "hour"}
+
+# A peak table is sorted worst-first, so the answer is at the top; showing every
+# day for every currency buries it.
+PEAK_DEFAULT_LIMIT = 20
+
 
 # Column carrying the primary monetary measure for each view, used when the
 # caller asks to aggregate but does not name a measure.
@@ -483,6 +502,76 @@ def apply_join(df: pd.DataFrame, spec: dict[str, Any], base_view: str) -> tuple[
     }
 
 
+AGE_UNITS = {"minutes": 60.0, "hours": 3600.0, "days": 86400.0}
+DEFAULT_AGE_BANDS = [1, 4, 24]  # hours
+
+
+def data_as_of(view: str) -> dt.datetime | None:
+    """The latest timestamp in a view - the point the data is current to.
+
+    Ageing is measured against this rather than the wall clock: the data is an
+    extract, and against today's date every historical row would look equally
+    stale, which tells a reader nothing about the queue when it was captured.
+    """
+    df = get_frame(view)
+    latest = None
+    for col in df.columns:
+        if not ("time" in col.lower() or "timestamp" in col.lower()):
+            continue
+        stamps = pd.to_datetime(df[col], errors="coerce").dropna()
+        if not stamps.empty:
+            top = stamps.max()
+            latest = top if latest is None else max(latest, top)
+    return latest.to_pydatetime() if latest is not None else None
+
+
+def apply_age(df: pd.DataFrame, spec: dict[str, Any], view: str,
+              reference: dt.datetime | None) -> tuple[pd.DataFrame, list[str]]:
+    """Add elapsed time since a timestamp, optionally banded.
+
+    "How long has this been waiting" is the actionable part of any queue view;
+    who created it is not.
+    """
+    column = spec.get("age_of")
+    _require_column(df, column, "an ageing column", view)
+    stamps = pd.to_datetime(df[column], errors="coerce")
+    if stamps.notna().sum() == 0:
+        raise QueryError(f"Column '{column}' does not contain readable timestamps.")
+
+    if reference is None:
+        reference = stamps.max().to_pydatetime()
+
+    unit = str(spec.get("unit") or "hours").lower()
+    if unit not in AGE_UNITS:
+        raise QueryError(f"Unsupported age unit '{unit}'. Use one of: {', '.join(AGE_UNITS)}.")
+
+    elapsed = (reference - stamps).dt.total_seconds() / AGE_UNITS[unit]
+    name = spec.get("name") or f"Age ({unit})"
+    added = [name]
+    df = df.assign(**{name: elapsed.round(2)})
+
+    bands = spec.get("bands")
+    if bands is not False:
+        edges = sorted(float(b) for b in (bands or DEFAULT_AGE_BANDS))
+        # Band on hours regardless of the numeric unit, since that is how an
+        # operations team talks about a queue.
+        hours = (reference - stamps).dt.total_seconds() / 3600.0
+        labels, cuts = [], [-float("inf")] + edges + [float("inf")]
+        for i in range(len(cuts) - 1):
+            low, high = cuts[i], cuts[i + 1]
+            if low == -float("inf"):
+                labels.append(f"under {high:g}h")
+            elif high == float("inf"):
+                labels.append(f"over {low:g}h")
+            else:
+                labels.append(f"{low:g}-{high:g}h")
+        band_name = f"{name} band"
+        df = df.assign(**{band_name: pd.cut(hours, bins=cuts, labels=labels,
+                                            right=False).astype(str)})
+        added.append(band_name)
+    return df, added
+
+
 def apply_derived(df: pd.DataFrame, specs: list[dict[str, Any]], view: str) -> tuple[pd.DataFrame, list[str]]:
     """Add calculated columns from arithmetic between two columns, or a column
     and a constant."""
@@ -491,8 +580,13 @@ def apply_derived(df: pd.DataFrame, specs: list[dict[str, Any]], view: str) -> t
         "+": lambda a, b: a + b, "-": lambda a, b: a - b,
         "*": lambda a, b: a * b, "/": lambda a, b: a / b.replace(0, pd.NA),
     }
+    reference = data_as_of(view)
     for spec in specs or []:
         name = spec.get("name") or "Derived"
+        if spec.get("age_of"):
+            df, age_columns = apply_age(df, spec, view, reference)
+            added.extend(age_columns)
+            continue
         op = spec.get("op")
         if op not in ops:
             raise QueryError(f"Unsupported operator '{op}'. Use one of: {', '.join(ops)}.")
@@ -511,6 +605,79 @@ def apply_derived(df: pd.DataFrame, specs: list[dict[str, Any]], view: str) -> t
         df = df.assign(**{name: ops[op](left_series, right_series)})
         added.append(name)
     return df, added
+
+
+def _has_date_filter(filters: list[dict[str, Any]], df: pd.DataFrame) -> bool:
+    """Whether the caller already narrowed the period themselves."""
+    def touches_date(spec: dict[str, Any]) -> bool:
+        if "any" in spec or "all" in spec:
+            return any(touches_date(p) for p in spec.get("any") or spec.get("all") or [])
+        col = str(spec.get("column") or "")
+        if col not in df.columns:
+            return False
+        return ("date" in col.lower() or "time" in col.lower()
+                or pd.api.types.is_datetime64_any_dtype(df[col]))
+    return any(touches_date(f) for f in filters)
+
+
+def compute_peak(df: pd.DataFrame, view: str, measure: str, timestamp_col: str,
+                 group_by: list[str], signed_by: dict[str, Any] | None = None
+                 ) -> pd.DataFrame:
+    """Peak intraday position: the extremes of the running net position, per day.
+
+    This is the shape of the BCBS 248 monitoring metric. A running total that
+    never resets describes a month-long accumulation, not an intraday position -
+    the position starts each day from the opening balance, so the cumulative
+    must restart every day and the peak is the extreme reached within it.
+
+    Returns one row per group per day: the largest positive position, the
+    largest negative (which is the usage figure), when each occurred, and where
+    the day closed.
+    """
+    _require_column(df, measure, "the peak measure", view)
+    _require_column(df, timestamp_col, "the peak timestamp", view)
+    df = _as_numeric(df, measure)
+
+    stamps = pd.to_datetime(df[timestamp_col], errors="coerce")
+    if stamps.notna().sum() == 0:
+        raise QueryError(f"Column '{timestamp_col}' does not contain readable timestamps.")
+
+    work = df.assign(__stamp__=stamps, __day__=stamps.dt.date)
+    amount = work[measure]
+
+    # A debit/credit column means the amount carries no sign of its own.
+    if signed_by:
+        col, negative = signed_by.get("column"), str(signed_by.get("negative", "DR"))
+        if col in work.columns:
+            sign = work[col].astype(str).str.strip().str.upper().eq(negative.upper())
+            amount = amount.abs() * sign.map({True: -1, False: 1})
+    work = work.assign(__amt__=amount)
+
+    partition = ["__day__"] + [g for g in group_by if g in work.columns]
+    work = work.sort_values(partition + ["__stamp__"]).reset_index(drop=True)
+    work["__cum__"] = work.groupby(partition, sort=False)["__amt__"].cumsum()
+
+    rows = []
+    for key, part in work.groupby(partition, sort=False):
+        key = key if isinstance(key, tuple) else (key,)
+        peak_idx, trough_idx = part["__cum__"].idxmax(), part["__cum__"].idxmin()
+        record = {"Value Date": key[0]}
+        for name, value in zip(partition[1:], key[1:]):
+            record[name] = value
+        record.update({
+            "Peak position": round(float(part.loc[peak_idx, "__cum__"]), 3),
+            "Peak at": part.loc[peak_idx, "__stamp__"].strftime("%H:%M"),
+            "Largest usage": round(float(part.loc[trough_idx, "__cum__"]), 3),
+            "Usage at": part.loc[trough_idx, "__stamp__"].strftime("%H:%M"),
+            "Closing position": round(float(part["__cum__"].iloc[-1]), 3),
+            "Movements": int(len(part)),
+        })
+        rows.append(record)
+
+    result = pd.DataFrame(rows)
+    # Worst usage first: the largest negative position is the number that
+    # matters for an intraday liquidity requirement.
+    return result.sort_values("Largest usage").reset_index(drop=True)
 
 
 def guard_currency(view: str, df: pd.DataFrame, measures: list[dict[str, str]],
@@ -688,12 +855,35 @@ def run_query(
         for spec in filters:
             mask &= _filter_mask(df, spec)
         df = df[mask]
+
+    # An intraday question means one day. Bucketing a month by hour produces
+    # hundreds of points that read as noise rather than a profile, so scope to
+    # the most recent day present unless the caller has already chosen a period.
+    scope_note: str | None = None
+    if (time_bucket
+            and str(time_bucket.get("granularity") or "").lower() in INTRADAY_GRANULARITIES
+            and not _has_date_filter(filters, df)
+            and not df.empty):
+        stamp_col = time_bucket.get("column")
+        if stamp_col in df.columns:
+            stamps = pd.to_datetime(df[stamp_col], errors="coerce")
+            days = stamps.dt.date.dropna()
+            if days.nunique() > 1:
+                latest = days.max()
+                df = df[stamps.dt.date == latest]
+                scope_note = (
+                    f"An hourly profile spanning {days.nunique()} days is not an "
+                    f"intraday view, so this covers the most recent day in the "
+                    f"data ({latest:%d %b %Y}). Ask for a specific date, or for a "
+                    "daily breakdown, to see the whole period."
+                )
     rows_after_filters = len(df)
 
     mode = (mode or "aggregate").lower()
-    if mode not in {"aggregate", "list", "distribution"}:
+    if mode not in {"aggregate", "list", "distribution", "peak"}:
         raise QueryError(
-            f"Unsupported mode '{mode}'. Use 'aggregate', 'list' or 'distribution'."
+            f"Unsupported mode '{mode}'. Use 'aggregate', 'list', "
+            "'distribution' or 'peak'."
         )
 
     # Fold the single-measure convenience form into the list form.
@@ -709,7 +899,47 @@ def run_query(
 
     raw_values: pd.DataFrame | None = None
 
-    if mode == "distribution":
+    if mode == "peak":
+        resolved_measures = _normalise_measures(measures, view, df)
+        if not resolved_measures or not resolved_measures[0].get("column"):
+            resolved_measures = [{"column": DEFAULT_MEASURE[view],
+                                  "aggregation": "sum",
+                                  "label": DEFAULT_MEASURE[view]}]
+        group_by = [g for g in (group_by or []) if g]
+        for col in group_by:
+            _require_column(df, col, "a grouping", view)
+
+        # The position must be built from a comparable measure; adding a local
+        # amount across currencies would make the peak meaningless.
+        resolved_measures, currency_notes = guard_currency(
+            view, df, resolved_measures, group_by)
+        target = resolved_measures[0]["column"]
+
+        stamp_col = (time_bucket or {}).get("column") or TIMESTAMP_COLUMN.get(view)
+        if not stamp_col:
+            raise QueryError(
+                f"A peak position needs a timestamp column on the {VIEW_SHEETS[view]}."
+            )
+        result = compute_peak(df, view, target, stamp_col, group_by,
+                              signed_by=SIGN_COLUMN.get(view))
+        label_columns = [c for c in result.columns
+                         if c in ("Value Date", *group_by)]
+        measure_columns = [c for c in result.columns if c not in label_columns]
+        # Sorted worst-first, so "the peak" is the head of this table. Showing
+        # every day for every currency buries the answer it was asked for.
+        total_positions = len(result)
+        effective_limit = limit or PEAK_DEFAULT_LIMIT
+        if total_positions > effective_limit:
+            result = result.head(effective_limit)
+            currency_notes.append(
+                f"Showing the {effective_limit} largest usage positions of "
+                f"{total_positions} day/group combinations, worst first. "
+                "Ask for a specific currency or date to see the rest."
+            )
+        resolved_measures = [{"column": target, "aggregation": "peak",
+                              "label": target}]
+
+    elif mode == "distribution":
         # How is a single numeric column distributed? Returns the summary
         # statistics as the table, and carries the raw values so a histogram or
         # box plot can be drawn from them.
@@ -844,11 +1074,47 @@ def run_query(
             # for most often, and both are wrong if computed by hand later.
             primary_measure = measure_columns[0] if measure_columns else None
             if add_share_of_total and primary_measure:
-                total = result[primary_measure].sum()
+                # A share needs a denominator that means something. Each row may
+                # be a valid single-currency total while their sum is not, so
+                # the share is computed from the FX-translated column instead.
+                share_source, share_label = primary_measure, primary_measure
+                ccy_col = CURRENCY_COLUMN.get(view)
+                equivalents = DISPLAY_EQUIVALENT.get(view, {})
+                mixes_currency = (
+                    primary_measure in equivalents
+                    and ccy_col in df.columns
+                    and df[ccy_col].nunique(dropna=True) > 1
+                )
+                if mixes_currency:
+                    display = equivalents[primary_measure]
+                    if not display or display not in df.columns:
+                        raise QueryError(
+                            f"A share of total cannot be computed from "
+                            f"'{primary_measure}': each figure is in its own "
+                            f"currency, so the total they are a share of would "
+                            f"add unlike units. '{primary_measure}' has no "
+                            "FX-translated equivalent in this data."
+                        )
+                    comparable = (_as_numeric(df, display)
+                                  .groupby(group_by, dropna=False)[display].sum())
+                    result = result.merge(
+                        comparable.rename("__share_base__").reset_index(),
+                        on=group_by, how="left")
+                    share_source, share_label = "__share_base__", display
+                    currency_notes.append(
+                        f"Each share is calculated on '{display}', the "
+                        f"FX-translated amount, because the currency totals in "
+                        f"'{primary_measure}' are in different units and their "
+                        "sum would not be a meaningful denominator."
+                    )
+
+                total = result[share_source].sum()
                 if total:
-                    share_name = f"% of total {primary_measure}"
-                    result[share_name] = (result[primary_measure] / total * 100).round(2)
+                    share_name = f"% of total {share_label}"
+                    result[share_name] = (result[share_source] / total * 100).round(2)
                     measure_columns.append(share_name)
+                if share_source == "__share_base__":
+                    result = result.drop(columns="__share_base__")
             if add_cumulative and primary_measure:
                 cum_name = f"Cumulative {primary_measure}"
                 # A running total must not run across the dimensions the table
@@ -910,7 +1176,8 @@ def run_query(
             "limit": limit,
             "join": join_info,
             "derived": derived_columns,
-            "currency_corrections": currency_notes,
+            "currency_corrections": currency_notes + ([scope_note] if scope_note else []),
+            "data_as_of": data_as_of(view),
             # Kept for existing readers of the provenance block.
             "measure": primary["column"] if primary else None,
             "aggregation": primary["aggregation"] if primary else None,

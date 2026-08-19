@@ -234,6 +234,21 @@ if share_col:
     check("shares are a percentage", abs(share["table"][share_col[0]].sum()) > 0,
           f"sums to {share['table'][share_col[0]].sum():.1f}")
 
+# Split by currency, each row is a valid single-currency total - but their sum
+# is not, so the share must be computed on the FX-translated amount.
+ccy_share = data_access.run_query("business_ledger", group_by=["CCY (Local)"],
+                                  measures=[{"column": "Amount (Local)"}],
+                                  add_share_of_total=True)
+share_cols = [c for c in ccy_share["table"].columns if c.startswith("% of total")]
+check("share across currencies uses the comparable column",
+      share_cols and "Display" in share_cols[0], str(share_cols))
+check("the substitution is reported",
+      any("FX-translated" in n for n in ccy_share["provenance"]["currency_corrections"]),
+      str(ccy_share["provenance"]["currency_corrections"])[:100])
+check("shares still total 100%",
+      abs(ccy_share["table"][share_cols[0]].sum() - 100) < 0.5,
+      f"{ccy_share['table'][share_cols[0]].sum():.1f}%")
+
 cum = data_access.run_query(
     "business_ledger",
     time_bucket={"column": "Transaction Timestamp", "granularity": "hour"},
@@ -368,6 +383,72 @@ try:
 except data_access.QueryError as exc:
     check("refuses when no FX-translated column exists",
           "cannot be combined" in str(exc), str(exc)[:90])
+
+print("\n5j. Peak intraday position (the BCBS 248 shape)")
+peak = data_access.run_query("business_ledger", mode="peak",
+                             measures=[{"column": "Amount (Display)"}],
+                             group_by=["CCY (Local)"])
+pt = peak["table"]
+check("peak returns the position metrics",
+      {"Peak position", "Largest usage", "Peak at", "Closing position"} <= set(pt.columns),
+      str(list(pt.columns)))
+check("one row per day per group", len(pt) > 1, f"{len(pt)} day/currency rows")
+check("worst usage is listed first", pt["Largest usage"].iloc[0] == pt["Largest usage"].min(),
+      f"{pt['Largest usage'].iloc[0]:,.0f}")
+check("usage is a position, not a total",
+      (pt["Largest usage"] <= pt["Peak position"]).all())
+
+# The position must restart each day, so it cannot exceed one day of movement.
+one_day = pt.iloc[0]
+same = data_access.get_frame("business_ledger")
+check("peak reports when it occurred", ":" in str(one_day["Peak at"]),
+      f"peak at {one_day['Peak at']}, usage at {one_day['Usage at']}")
+
+print("\n5k. Ageing")
+aged = data_access.run_query(
+    "nostro_transfer",
+    derived=[{"name": "Waiting", "age_of": "Created Time", "unit": "hours"}],
+    mode="list", columns=["Reference", "Waiting", "Waiting band"], limit=5)
+check("age column added", "Waiting" in aged["table"].columns)
+check("age band added", "Waiting band" in aged["table"].columns,
+      str(sorted(set(aged["table"]["Waiting band"]))))
+check("ages are non-negative", (aged["table"]["Waiting"] >= 0).all(),
+      f"min {aged['table']['Waiting'].min():.1f}h")
+
+banded = data_access.run_query(
+    "nostro_transfer",
+    derived=[{"name": "Waiting", "age_of": "Created Time", "unit": "hours"}],
+    group_by=["Waiting band"], measures=[{"aggregation": "count"}])
+check("queue can be grouped by age band", len(banded["table"]) >= 1,
+      f"{len(banded['table'])} bands")
+check("ageing is measured from the data, not today",
+      data_access.data_as_of("nostro_transfer") is not None,
+      f"as of {data_access.data_as_of('nostro_transfer')}")
+
+print("\n5l. Intraday questions scope to one day")
+wide = data_access.run_query("business_ledger", group_by=["Value Date"],
+                             measures=[{"aggregation": "count"}])
+scoped = data_access.run_query(
+    "business_ledger",
+    time_bucket={"column": "Transaction Timestamp", "granularity": "hour"},
+    measures=[{"aggregation": "count"}])
+notes = scoped["provenance"]["currency_corrections"]
+if len(wide["table"]) > 1:
+    check("hourly view scopes to a single day", len(scoped["table"]) <= 24,
+          f"{len(scoped['table'])} buckets from {len(wide['table'])} days")
+    check("the scoping is reported", any("intraday" in n for n in notes),
+          notes[0][:80] if notes else "no note")
+else:
+    check("single-day sample needs no scoping", len(scoped["table"]) <= 24,
+          f"{len(scoped['table'])} buckets")
+
+explicit = data_access.run_query(
+    "business_ledger",
+    filters=[{"column": "Value Date", "operator": "not_null"}],
+    time_bucket={"column": "Transaction Timestamp", "granularity": "hour"},
+    measures=[{"aggregation": "count"}])
+check("an explicit date filter is respected",
+      not any("intraday" in n for n in explicit["provenance"]["currency_corrections"]))
 
 print("\n6. Error handling")
 for label, kwargs in [
