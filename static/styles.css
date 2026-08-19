@@ -490,13 +490,16 @@ tbody tr:hover td { background: rgba(161, 0, 255, .07); color: var(--text); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── the in-app assistant ─────────────────────────────────────── */
-.assistant {
+/* Namespaced as .assistant-widget: the conversation's own message
+   blocks carry class "msg assistant", and a bare .assistant rule
+   here made every report block position:fixed. */
+.assistant-widget {
   position: fixed;
   right: 26px; bottom: 26px;
   z-index: 40;
   display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
 }
-.assistant.is-dragging { user-select: none; cursor: grabbing; }
+.assistant-widget.is-dragging { user-select: none; cursor: grabbing; }
 
 .assistant-bubble {
   display: flex; align-items: center; gap: 9px;
@@ -508,7 +511,7 @@ tbody tr:hover td { background: rgba(161, 0, 255, .07); color: var(--text); }
   transition: filter .14s, box-shadow .14s;
 }
 .assistant-bubble:hover { filter: brightness(1.12); transform: none; }
-.assistant.is-dragging .assistant-bubble { cursor: grabbing; }
+.assistant-widget.is-dragging .assistant-bubble { cursor: grabbing; }
 .assistant-bubble-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: #fff; box-shadow: 0 0 9px rgba(255, 255, 255, .85);

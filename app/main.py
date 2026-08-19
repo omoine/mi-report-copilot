@@ -225,4 +225,24 @@ def download(filename: str) -> FileResponse:
     return FileResponse(path, media_type=media, filename=path.name)
 
 
-app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+class RevalidatingStatic(StaticFiles):
+    """Serve static files with must-revalidate.
+
+    Without this the browser reuses a cached script until forced otherwise, so a
+    change to the interface appears not to have taken effect and the page can be
+    left running a mix of old and new code. "no-cache" does not mean "do not
+    cache" - the browser still keeps the file and gets a cheap 304 when it has
+    not changed - it means "check first", which is what a frequently changing
+    interface needs.
+    """
+
+    def is_not_modified(self, response_headers, request_headers) -> bool:
+        return super().is_not_modified(response_headers, request_headers)
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
+
+
+app.mount("/", RevalidatingStatic(directory=STATIC_DIR, html=True), name="static")

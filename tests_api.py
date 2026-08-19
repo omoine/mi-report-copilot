@@ -294,6 +294,33 @@ check("an empty question is rejected", r.status_code == 400)
 
 main._provider = stub  # restore for the checks that follow
 
+print("\n6e. Front-end class hygiene")
+static_dir = Path(__file__).parent / "static"
+css = (static_dir / "styles.css").read_text(encoding="utf-8")
+app_js = (static_dir / "app.js").read_text(encoding="utf-8")
+assistant_js = (static_dir / "assistant.js").read_text(encoding="utf-8")
+
+# The conversation gives its blocks class "msg assistant". A bare `.assistant`
+# rule in the stylesheet therefore lands on every report block - which is how
+# they all became position:fixed and rendered over the top of the page.
+import re  # noqa: E402
+
+conversation_classes = set(re.findall(r'className = `msg \$\{(\w+)\}`', app_js))
+bare_rules = re.findall(r"^\.assistant\s*[,{]", css, re.MULTILINE)
+check("no bare .assistant rule in the stylesheet", not bare_rules,
+      f"{len(bare_rules)} found - it would style every conversation block")
+check("the widget root is namespaced",
+      "assistant-widget" in assistant_js and "assistant-widget" in css)
+check("the conversation still uses the msg/assistant pairing",
+      "cls = 'assistant'" in app_js,
+      "if this changes, revisit the collision guard above")
+
+# Any class the widget positions must not be one the conversation applies.
+positioned = set(re.findall(r"^\.([a-z-]+)\s*\{[^}]*position:\s*fixed", css,
+                            re.MULTILINE | re.DOTALL))
+check("nothing the conversation applies is position:fixed",
+      "assistant" not in positioned, str(sorted(positioned)))
+
 print("\n7. Guard rails")
 r = client.post("/api/export", json={"session_id": "nonexistent-session"})
 check("export without report is rejected", r.status_code == 400, r.json().get("detail", "")[:50])

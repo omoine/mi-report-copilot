@@ -16,7 +16,7 @@
   ));
 
   const root = document.createElement('div');
-  root.className = 'assistant';
+  root.className = 'assistant-widget';
   root.innerHTML = `
     <button class="assistant-bubble" type="button" aria-label="Open the assistant">
       <span class="assistant-bubble-dot"></span>
@@ -68,9 +68,16 @@
     } catch { /* fall back to the default corner */ }
   }
 
+  // A hand never holds perfectly still, so a click always carries a pixel or
+  // two of movement. Treating any movement as a drag made the bubble swallow
+  // ordinary clicks and feel dead; only past this distance is it a drag.
+  const DRAG_THRESHOLD = 5;
+
   let dragging = false;
   let offsetX = 0;
   let offsetY = 0;
+  let startX = 0;
+  let startY = 0;
   let moved = false;
 
   function startDrag(event) {
@@ -80,16 +87,22 @@
     moved = false;
     const rect = root.getBoundingClientRect();
     const point = event.touches ? event.touches[0] : event;
+    startX = point.clientX;
+    startY = point.clientY;
     offsetX = point.clientX - rect.left;
     offsetY = point.clientY - rect.top;
-    root.classList.add('is-dragging');
   }
 
   function onDrag(event) {
     if (!dragging) return;
     const point = event.touches ? event.touches[0] : event;
+    if (!moved) {
+      const far = Math.hypot(point.clientX - startX, point.clientY - startY);
+      if (far < DRAG_THRESHOLD) return;
+      moved = true;
+      root.classList.add('is-dragging');
+    }
     place(point.clientX - offsetX, point.clientY - offsetY);
-    moved = true;
     if (event.cancelable) event.preventDefault();
   }
 
@@ -97,6 +110,7 @@
     if (!dragging) return;
     dragging = false;
     root.classList.remove('is-dragging');
+    if (!moved) return;  // a click, not a drag: leave the position alone
     const rect = root.getBoundingClientRect();
     localStorage.setItem(POSITION_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
   }
@@ -123,12 +137,18 @@
     if (open) {
       refreshMode();
       if (!log.children.length) greet();
+      // The panel expands downward from wherever the bubble sits, so opening
+      // near the bottom would push it off screen. Re-clamp once it has size.
+      if (root.style.left) {
+        const rect = root.getBoundingClientRect();
+        requestAnimationFrame(() => place(rect.left, rect.top));
+      }
       input.focus();
     }
   }
 
   bubble.addEventListener('click', () => {
-    // A drag should not also count as a click.
+    // Swallow only the click that ends a real drag, not an ordinary one.
     if (moved) { moved = false; return; }
     setOpen(!open);
   });
