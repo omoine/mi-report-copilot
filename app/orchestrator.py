@@ -18,6 +18,7 @@ from typing import Any
 from . import (
     data_access,
     data_export,
+    headline,
     llm_client,
     md_export,
     pdf_export,
@@ -241,6 +242,33 @@ OPERATOR_WORDS = {
 }
 
 
+def _describe_filter(spec: dict[str, Any]) -> str:
+    """One filter in English, including the any/all groups.
+
+    Without handling the group form this rendered as "None is None", which tells
+    a reader nothing about what was actually counted.
+    """
+    for key, joiner in (("any", " or "), ("all", " and ")):
+        if key in spec:
+            parts = [_describe_filter(p) for p in spec.get(key) or []]
+            parts = [p for p in parts if p]
+            if not parts:
+                return ""
+            body = joiner.join(parts)
+            return f"({body})" if len(parts) > 1 else body
+
+    column = spec.get("column")
+    if not column:
+        return ""
+    op = OPERATOR_WORDS.get((spec.get("operator") or "eq").lower(), spec.get("operator"))
+    if op in ("is blank", "is not blank"):
+        return f"{column} {op}"
+    value = spec.get("value")
+    if isinstance(value, list):
+        value = ", ".join(str(v) for v in value)
+    return f"{column} {op} {value}"
+
+
 def _summarise_query(query: dict[str, Any], chart_type: str) -> str:
     """Plain-English echo of the query, so the user can sanity-check it.
 
@@ -288,15 +316,8 @@ def _summarise_query(query: dict[str, Any], chart_type: str) -> str:
             parts.append("split by " + " and ".join(query["group_by"]))
 
     if query.get("filters"):
-        readable = []
-        for f in query["filters"]:
-            op = OPERATOR_WORDS.get((f.get("operator") or "eq").lower(), f.get("operator"))
-            value = f.get("value")
-            if op in ("is blank", "is not blank"):
-                readable.append(f"{f.get('column')} {op}")
-            else:
-                readable.append(f"{f.get('column')} {op} {value}")
-        parts.append("counting only where " + " and ".join(readable))
+        readable = [_describe_filter(f) for f in query["filters"]]
+        parts.append("counting only where " + " and ".join(r for r in readable if r))
     if query.get("add_share_of_total"):
         parts.append("with each row's share of the total")
     if query.get("add_cumulative"):
@@ -341,6 +362,7 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
 
     session.last_result = result
     session.report = {
+        "headline": headline.build(result, result["provenance"]),
         "title": title,
         "user_query": session.user_query,
         "understood": interp["understood"],
@@ -583,6 +605,7 @@ def _report_payload(session: Session) -> dict[str, Any]:
     return {
         "state": session.state,
         "title": report["title"],
+        "headline": report.get("headline", []),
         "narrative": report["narrative"],
         "understood": report["understood"],
         "limitations": report["limitations"],

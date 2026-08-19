@@ -118,6 +118,14 @@ INTRADAY_GRANULARITIES = {"minute", "15min", "30min", "hour"}
 # day for every currency buries it.
 PEAK_DEFAULT_LIMIT = 20
 
+# A management breakdown a person reads is a few rows. Past this the answer is
+# buried in its own detail, so the tail is folded into a single "Other" row.
+MANAGEMENT_ROW_CAP = 25
+
+# Aggregations where folding a tail into "Other" is arithmetically sound. An
+# average of averages is not an average, so those are capped rather than folded.
+FOLDABLE_AGGREGATIONS = {"sum", "count"}
+
 
 # Column carrying the primary monetary measure for each view, used when the
 # caller asks to aggregate but does not name a measure.
@@ -607,6 +615,45 @@ def apply_derived(df: pd.DataFrame, specs: list[dict[str, Any]], view: str) -> t
     return df, added
 
 
+def _cap_for_reading(result: pd.DataFrame, label_columns: list[str],
+                     measure_columns: list[str], measures: list[dict[str, str]],
+                     is_time_series: bool) -> tuple[pd.DataFrame, str | None]:
+    """Keep a management breakdown to a readable length.
+
+    A time series is left alone: its rows are periods, and folding the tail
+    would mean folding "later", which is meaningless. Everything else is sorted
+    by size already, so the tail is genuinely the small stuff - summed into a
+    single "Other" row where that is sound, capped where it is not.
+    """
+    if is_time_series or len(result) <= MANAGEMENT_ROW_CAP or not label_columns:
+        return result, None
+
+    total_groups = len(result)
+    keep = MANAGEMENT_ROW_CAP - 1
+    head, tail = result.head(keep).copy(), result.iloc[keep:]
+
+    aggs = {m.get("aggregation", "sum") for m in measures}
+    if aggs <= FOLDABLE_AGGREGATIONS:
+        other = {label_columns[0]: f"Other ({len(tail)})"}
+        for col in label_columns[1:]:
+            other[col] = ""
+        for col in measure_columns:
+            other[col] = tail[col].sum() if col in tail.columns else None
+        folded = pd.concat([head, pd.DataFrame([other])], ignore_index=True)
+        return folded, (
+            f"{total_groups} groups were returned. The {keep} largest are shown "
+            f"individually and the remaining {len(tail)} are combined into "
+            '"Other" - a breakdown this long is not readable as a management '
+            "view. Ask for a specific group, or a top-N, to go further."
+        )
+
+    return head, (
+        f"Showing the {keep} largest of {total_groups} groups. The rest are "
+        f"omitted rather than combined, because averaging an average would not "
+        "give a meaningful figure."
+    )
+
+
 def _has_date_filter(filters: list[dict[str, Any]], df: pd.DataFrame) -> bool:
     """Whether the caller already narrowed the period themselves."""
     def touches_date(spec: dict[str, Any]) -> bool:
@@ -1065,6 +1112,12 @@ def run_query(
             result = result.sort_values(order_col, ascending=not sort_desc).reset_index(drop=True)
             if limit:
                 result = result.head(limit)
+            else:
+                result, fold_note = _cap_for_reading(
+                    result, label_columns, measure_columns, resolved_measures,
+                    is_time_series=bool(time_bucket))
+                if fold_note:
+                    currency_notes.append(fold_note)
             if pivoted:
                 measures_note = f"split by {group_by[1]}"
             else:
@@ -1138,6 +1191,26 @@ def run_query(
                 else:
                     result[cum_name] = result[primary_measure].cumsum()
                 measure_columns.append(cum_name)
+
+            # A time series without a baseline cannot answer "is this normal".
+            # Added last so the columns it introduces are never mistaken for
+            # grouping dimensions by the calculations above.
+            if time_bucket and primary_measure and len(result) >= 5:
+                values = result[primary_measure]
+                average, spread = values.mean(), values.std(ddof=1)
+                if pd.notna(average) and average != 0:
+                    result["vs average %"] = ((values - average) / abs(average)
+                                              * 100).round(1)
+                    measure_columns.append("vs average %")
+                if pd.notna(spread) and spread > 0:
+                    unusual = (values - average).abs() > 2 * spread
+                    if unusual.any():
+                        result["Unusual"] = unusual.map({True: "yes", False: ""})
+                        currency_notes.append(
+                            f"{int(unusual.sum())} of {len(result)} periods sit more "
+                            f"than two standard deviations from the period average "
+                            f"of {average:,.0f} and are marked as unusual."
+                        )
         else:
             row = {}
             for m in resolved_measures:

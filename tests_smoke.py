@@ -450,6 +450,52 @@ explicit = data_access.run_query(
 check("an explicit date filter is respected",
       not any("intraday" in n for n in explicit["provenance"]["currency_corrections"]))
 
+print("\n5m. Executive framing")
+from app import headline as headline_mod  # noqa: E402
+
+conc = data_access.run_query("business_ledger", group_by=["Counterparty"],
+                             measures=[{"column": "Amount (Display)"}],
+                             add_share_of_total=True)
+head = headline_mod.build(conc, conc["provenance"])
+check("headline produced", 1 <= len(head) <= 3, f"{len(head)} figures")
+check("headline carries a concentration figure",
+      any("Concentration" in h["label"] for h in head),
+      "; ".join(f"{h['label']}={h['value']}" for h in head))
+check("headline never names the folded Other bucket",
+      not any("Other (" in h.get("detail", "") for h in head),
+      str([h.get("detail") for h in head])[:90])
+share_like = [h for h in head if "%" in h.get("detail", "")]
+check("shares stay within 100%",
+      all(float(d.split("%")[0].split()[-1]) <= 100
+          for d in (h["detail"] for h in share_like) if "%" in d),
+      str([h["detail"] for h in share_like])[:100])
+
+# A breakdown of hundreds of groups is not a management view.
+wide = data_access.run_query("business_ledger", group_by=["Ledger Account"],
+                             measures=[{"column": "Amount (Display)"}])
+check("long breakdowns are capped", len(wide["table"]) <= 25,
+      f"{len(wide['table'])} rows")
+check("the folded tail is labelled",
+      wide["table"].iloc[-1, 0].startswith("Other ("), str(wide["table"].iloc[-1, 0]))
+check("the fold is reported",
+      any("Other" in n for n in wide["provenance"]["currency_corrections"]))
+
+# A time series must not be folded: its tail is "later", not "smaller".
+series = data_access.run_query(
+    "business_ledger",
+    time_bucket={"column": "Transaction Timestamp", "granularity": "day"},
+    measures=[{"column": "Amount (Display)"}])
+check("time series is never folded into Other",
+      not series["table"].iloc[:, 0].astype(str).str.startswith("Other").any())
+# A baseline needs enough periods to mean anything; this sample spans two days.
+if len(series["table"]) >= 5:
+    check("time series carries a baseline", "vs average %" in series["table"].columns,
+          str(list(series["table"].columns)))
+else:
+    check("baseline withheld on too few periods",
+          "vs average %" not in series["table"].columns,
+          f"only {len(series['table'])} periods - an average would be noise")
+
 print("\n6. Error handling")
 for label, kwargs in [
     ("unknown view", {"view": "nope"}),

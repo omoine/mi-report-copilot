@@ -23,8 +23,22 @@ reader could not detect.
 > | 9 Day-over-day | local currency summed | **FX-translated automatically** |
 > | 10 Largest movements | correct | correct |
 >
-> Seven of ten now answer the question asked. The three outstanding are all
-> Priority 3 — result size and executive framing, not correctness.
+> ## After Priority 3
+>
+> Result size is capped at 25 groups with the tail folded into "Other" (never on
+> a time series, where the tail is "later" not "smaller"). Every report leads
+> with two or three headline figures computed from the result. Time series carry
+> a period average and mark days beyond two standard deviations. Concentration is
+> reported on gross flow, so offsetting debits and credits cannot disguise it.
+>
+> **Seven of the ten are now saved as named views** users pick from the list —
+> see `seed_views.py`. Three are deliberately not:
+>
+> | Not saved | Why |
+> |---|---|
+> | Reconciliation exceptions | Returns every break in the period as a flat list. Needs materiality, ageing and a repeat-offender count before it is a management view. |
+> | Payment failures | The count is now right (199), but the breakdown fragments across currency and both venues into rows of one. Needs a coarser cut and a failure reason, which the data does not carry. |
+> | Entity and desk performance | Groups by ledger account rather than desk, and legal entity cannot be attributed to the ledger view at all. Partly a data gap. |
 >
 > Re-running view 4 showed why the currency work mattered beyond tidiness: USD
 > concentration was reported as 34.8% and is actually **49.7%**, while MXN read

@@ -24,6 +24,16 @@ def _fmt_filters(filters: list[dict[str, Any]]) -> str:
     )
 
 
+def _headline_block(items: list[dict[str, str]] | None) -> str:
+    """The two or three numbers the report leads with."""
+    if not items:
+        return ""
+    lines = ["| | |", "|---|---|"]
+    lines += [f"| **{i['label']}** | **{i['value']}** — {i.get('detail', '')} |"
+              for i in items]
+    return "\n".join(lines)
+
+
 def _fmt_list(items: list[str], empty: str) -> str:
     return "\n".join(f"- {i}" for i in items) if items else f"_{empty}_"
 
@@ -130,6 +140,8 @@ def build_markdown(report: dict[str, Any], out_dir: Path, session_id: str,
 {report.get('understood', '_Not recorded._')}
 
 ## 3. The finding
+
+{_headline_block(report.get('headline'))}
 
 {report.get('narrative', '_No commentary recorded._')}
 

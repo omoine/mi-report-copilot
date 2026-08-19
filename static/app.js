@@ -134,8 +134,19 @@ function renderTable(table) {
   return html;
 }
 
+function renderHeadline(items) {
+  if (!items || !items.length) return '';
+  return `<div class="headline">${items.map((h) => `
+      <div class="headline-item">
+        <div class="headline-label">${escapeHtml(h.label)}</div>
+        <div class="headline-value">${escapeHtml(h.value)}</div>
+        <div class="headline-detail">${escapeHtml(h.detail || '')}</div>
+      </div>`).join('')}</div>`;
+}
+
 function renderReport(data) {
   let html = `<div class="who">Report</div><h3 style="margin:0 0 8px">${escapeHtml(data.title)}</h3>`;
+  html += renderHeadline(data.headline);
 
   if (data.chart_url) {
     html += `<div class="chart-wrap"><img src="${escapeHtml(data.chart_url)}" alt="${escapeHtml(data.title)}"></div>`;

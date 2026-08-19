@@ -180,6 +180,12 @@ Rules for the query:
   FX-translated amount this view does not carry. Never present such a total as
   if it were a single meaningful figure.
 - Use "table" as chart_type when the user wants a listing rather than a comparison.
+- SIZE. A management breakdown that a person reads is roughly 5 to 20 rows.
+  Do not group by an identifier with hundreds of distinct values (an account
+  number, a ledger account, a transaction reference) when the user asked about
+  desks, entities, currencies or counterparties - group by the management
+  dimension they named. If a breakdown would run to hundreds of rows, either
+  group at a coarser level or set a "limit" for the top N.
 - Use "barh" when category names are long or there are more than about eight of
   them, and for part-to-whole questions (share of total). Use "line" only when the
   grouping column is a date or time. There is no pie option by design: bars compare

@@ -147,6 +147,33 @@ def build_pdf(report: dict[str, Any], out_dir: Path, session_id: str,
         Paragraph(_escape(report.get("understood", "")), st["body"]),
     ]
 
+    # The headline sits above the chart: a reader should be able to stop here.
+    if report.get("headline"):
+        cells = []
+        for item in report["headline"][:3]:
+            block = [
+                Paragraph(_escape(item["label"]).upper(), st["small"]),
+                Spacer(1, 2),
+                Paragraph(f'<font size="16"><b>{_escape(item["value"])}</b></font>',
+                          st["body"]),
+                Paragraph(_escape(item.get("detail", "")), st["small"]),
+            ]
+            cells.append(block)
+        avail = PAGE_SIZE[0] - 2 * MARGIN
+        head_tbl = Table([cells], colWidths=[avail / len(cells)] * len(cells),
+                         hAlign="LEFT")
+        head_tbl.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BACKGROUND", (0, 0), (-1, -1), SURFACE_ALT),
+            ("BOX", (0, 0), (-1, -1), 0.5, GRIDLINE),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, GRIDLINE),
+            ("LEFTPADDING", (0, 0), (-1, -1), 9),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ]))
+        story += [Spacer(1, 8), head_tbl]
+
     chart_path = report.get("chart_path")
     if chart_path and Path(chart_path).exists():
         story += [Spacer(1, 6), _fit_image(Path(chart_path))]
@@ -212,8 +239,9 @@ def _fit_image(chart_path: Path) -> Image:
     """Scale the chart to the content width, preserving aspect ratio."""
     img = Image(str(chart_path))
     avail_w = PAGE_SIZE[0] - 2 * MARGIN
-    # Kept modest so the chart, commentary and a short table share page one.
-    max_h = 78 * mm
+    # Kept modest so the headline, chart, commentary and a short table all share
+    # page one - a manager should not have to turn the page for the answer.
+    max_h = 62 * mm
     ratio = img.imageHeight / img.imageWidth
     width = min(avail_w, img.imageWidth)
     height = width * ratio
