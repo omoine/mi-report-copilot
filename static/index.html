@@ -25,7 +25,15 @@
       and flags the limitations before building anything.
     </p>
   </div>
-  <span class="badge" id="statusBadge">checking&hellip;</span>
+  <div class="header-actions">
+    <div class="view-switch" role="tablist" aria-label="Workspace">
+      <button id="tabAnalysis" class="switch-btn active" role="tab"
+              aria-selected="true">Analysis</button>
+      <button id="tabModel" class="switch-btn" role="tab"
+              aria-selected="false">Data model</button>
+    </div>
+    <span class="badge" id="statusBadge">checking&hellip;</span>
+  </div>
 </header>
 
 <div class="layout">
@@ -73,7 +81,19 @@
 
 </div>
 
+<section id="modelView" class="model-view" hidden>
+  <div class="model-bar">
+    <button id="modelBack" class="secondary" hidden>&larr; All tables</button>
+    <div class="model-crumb" id="modelCrumb">Data architecture</div>
+    <input type="search" id="modelSearch" placeholder="Find a table&hellip;"
+           autocomplete="off" aria-label="Find a table">
+  </div>
+  <div id="modelOverview" class="model-overview">loading&hellip;</div>
+  <div id="modelDetail" class="model-detail" hidden></div>
+</section>
+
 <script src="/app.js"></script>
+<script src="/model.js"></script>
 <script src="/assistant.js"></script>
 </body>
 </html>
