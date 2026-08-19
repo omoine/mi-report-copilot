@@ -228,7 +228,7 @@ check("derived column is filterable", len(der_f["table"]) < 24,
 share = data_access.run_query("business_ledger", group_by=["Cashflow Type"],
                               measures=[{"column": "Amount (Display)"}],
                               add_share_of_total=True)
-share_col = [c for c in share["table"].columns if c.startswith("% of total")]
+share_col = [c for c in share["table"].columns if c.startswith("% of")]
 check("share of total added", bool(share_col), str(share_col))
 if share_col:
     check("shares are a percentage", abs(share["table"][share_col[0]].sum()) > 0,
@@ -239,15 +239,17 @@ if share_col:
 ccy_share = data_access.run_query("business_ledger", group_by=["CCY (Local)"],
                                   measures=[{"column": "Amount (Local)"}],
                                   add_share_of_total=True)
-share_cols = [c for c in ccy_share["table"].columns if c.startswith("% of total")]
+share_cols = [c for c in ccy_share["table"].columns if c.startswith("% of")]
 check("share across currencies uses the comparable column",
       share_cols and "Display" in share_cols[0], str(share_cols))
 check("the substitution is reported",
       any("FX-translated" in n for n in ccy_share["provenance"]["currency_corrections"]),
       str(ccy_share["provenance"]["currency_corrections"])[:100])
-check("shares still total 100%",
+# Debits and credits offset, so shares are taken on gross flow and the
+# column is named accordingly.
+check("shares total 100% on whichever basis was used",
       abs(ccy_share["table"][share_cols[0]].sum() - 100) < 0.5,
-      f"{ccy_share['table'][share_cols[0]].sum():.1f}%")
+      f"{share_cols[0]} sums to {ccy_share['table'][share_cols[0]].sum():.1f}%")
 
 cum = data_access.run_query(
     "business_ledger",
@@ -495,6 +497,75 @@ else:
     check("baseline withheld on too few periods",
           "vs average %" not in series["table"].columns,
           f"only {len(series['table'])} periods - an average would be noise")
+
+print("\n5n. Reference data lookups")
+refs = data_access.reference_tables()
+if not refs:
+    check("reference tables load", False, "none found - run generate_reference.py")
+else:
+    check("reference tables load", len(refs) >= 15, f"{len(refs)} tables")
+    check("every table has a key and attributes",
+          all(len(df.columns) >= 2 and len(df) > 0 for df in refs.values()))
+
+    # Round 1: keyed off a column that exists in the live data, so every row joins.
+    one_hop = data_access.run_query(
+        "business_ledger", mode="list",
+        join={"view": "counterparty_master", "on": {"left": "Counterparty"},
+              "bring": ["Country of Incorporation", "Credit Rating"]},
+        columns=["Counterparty", "Country of Incorporation", "Credit Rating"],
+        limit=5)
+    info = one_hop["provenance"]["join"]
+    check("a reference lookup matches every row", info["rows_unmatched"] == 0,
+          f"{info['rows_matched']} matched, {info['rows_unmatched']} unmatched")
+    # The reference table has a single key, so only the near side is named.
+    check("the brought attributes are usable",
+          {"Country of Incorporation", "Credit Rating"} <= set(one_hop["table"].columns),
+          str(list(one_hop["table"].columns)))
+
+    # Round 2: the attribute is two hops away, which is the whole point.
+    two_hop = data_access.run_query(
+        "business_ledger",
+        join=[{"view": "counterparty_master", "on": {"left": "Counterparty"},
+               "bring": ["Country of Incorporation"]},
+              {"view": "country_master", "on": {"left": "Country of Incorporation"},
+               "bring": ["Sanctions Regime", "Region"]}],
+        group_by=["Sanctions Regime"],
+        measures=[{"aggregation": "count"}])
+    check("two hops reach a round-2 attribute", len(two_hop["table"]) > 1,
+          f"regimes: {sorted(two_hop['table']['Sanctions Regime'])}")
+    check("both hops are recorded in provenance",
+          len(two_hop["provenance"]["join"]) == 2,
+          str([h["view"] for h in two_hop["provenance"]["join"]]))
+
+    # The jurisdiction question this was built for.
+    russia = data_access.run_query(
+        "business_ledger",
+        join=[{"view": "counterparty_master", "on": {"left": "Counterparty"},
+               "bring": ["Country of Incorporation"]}],
+        filters=[{"column": "Country of Incorporation", "operator": "eq",
+                  "value": "Russia"}],
+        measures=[{"aggregation": "count"}])
+    check("a single jurisdiction can be isolated",
+          russia["table"].iloc[0, 0] >= 0,
+          f"{russia['table'].iloc[0, 0]} Russian-counterparty postings")
+
+    # Country data must be real, since invented geography answers nothing.
+    countries = data_access.get_reference("country_master")
+    check("countries are real with ISO codes and regions",
+          {"United Kingdom", "Russia", "Singapore"} <= set(countries.iloc[:, 0]),
+          f"{len(countries)} countries")
+    check("regions are populated",
+          countries["Region"].notna().all() and countries["Region"].nunique() >= 4,
+          str(sorted(countries["Region"].unique())))
+
+    try:
+        data_access.run_query("business_ledger", mode="list",
+                              join={"view": "not_a_table", "on": {"left": "Counterparty"}},
+                              columns=["Counterparty"])
+        check("an unknown reference table is rejected", False, "no error")
+    except data_access.QueryError as exc:
+        check("an unknown reference table is rejected",
+              "reference tables" in str(exc), str(exc)[:70])
 
 print("\n6. Error handling")
 for label, kwargs in [

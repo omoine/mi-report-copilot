@@ -167,6 +167,63 @@ def _workbook_frames() -> dict[str, pd.DataFrame]:
     return frames
 
 
+REFERENCE_FILE = Path(os.getenv("REFERENCE_FILE") or DATA_DIR / "reference_data.xlsx")
+REFERENCE_HEADER_ROW = 4  # title, subtitle, blank, then the header
+
+
+@lru_cache(maxsize=1)
+def _reference_frames() -> dict[str, pd.DataFrame]:
+    """Reference tables from the data lake, keyed to values in the live data.
+
+    Loaded separately from the transaction views: they answer "what else do we
+    know about this thing", not "what happened", and keeping them apart stops a
+    lookup table being mistaken for a source of transactions.
+    """
+    if not REFERENCE_FILE.exists():
+        return {}
+    wb = openpyxl.load_workbook(REFERENCE_FILE, data_only=True)
+    frames: dict[str, pd.DataFrame] = {}
+    try:
+        for name in wb.sheetnames:
+            rows = list(wb[name].iter_rows(min_row=REFERENCE_HEADER_ROW, values_only=True))
+            if len(rows) < 2:
+                continue
+            header = [str(c).strip() for c in rows[0] if c is not None]
+            body = [list(r)[:len(header)] for r in rows[1:] if r and r[0] is not None]
+            frames[name] = pd.DataFrame(body, columns=header)
+    finally:
+        wb.close()
+    return frames
+
+
+def reference_tables() -> dict[str, pd.DataFrame]:
+    return _reference_frames()
+
+
+def get_reference(name: str) -> pd.DataFrame:
+    frames = _reference_frames()
+    if name not in frames:
+        raise QueryError(
+            f"Unknown reference table '{name}'. Available: "
+            f"{', '.join(sorted(frames)) or 'none loaded'}."
+        )
+    return frames[name].copy()
+
+
+def reference_summary() -> dict[str, Any]:
+    """Compact description for the prompt: the key and what each table adds."""
+    out: dict[str, Any] = {}
+    for name, df in _reference_frames().items():
+        if df.empty:
+            continue
+        out[name] = {
+            "key_column": df.columns[0],
+            "rows": len(df),
+            "attributes": [c for c in df.columns[1:]],
+        }
+    return out
+
+
 @lru_cache(maxsize=1)
 def _metadata() -> dict[str, Any]:
     """Read the workbook's own Data Dictionary, View Controls and Reference Data.
@@ -452,20 +509,32 @@ def apply_join(df: pd.DataFrame, spec: dict[str, Any], base_view: str) -> tuple[
     columns hold different populations entirely.
     """
     right_view = spec.get("view")
-    if right_view not in VIEW_SHEETS:
+    references = _reference_frames()
+    if right_view in references:
+        right = get_reference(right_view)
+        right_label = right_view
+    elif right_view in VIEW_SHEETS:
+        right = get_frame(right_view)
+        right_label = VIEW_SHEETS[right_view]
+    else:
         raise QueryError(
-            f"Cannot combine with '{right_view}'. Available views: {', '.join(VIEW_SHEETS)}."
+            f"Cannot combine with '{right_view}'. Available views: "
+            f"{', '.join(VIEW_SHEETS)}. Available reference tables: "
+            f"{', '.join(sorted(references)) or 'none'}."
         )
+
     on = spec.get("on") or {}
-    left_key, right_key = on.get("left"), on.get("right") or on.get("left")
+    left_key = on.get("left")
+    # A reference table has one key, so the caller need not name it.
+    right_key = on.get("right") or (right.columns[0] if right_view in references
+                                    else on.get("left"))
     if not left_key or not right_key:
         raise QueryError("A combine needs a key column on each side.")
 
     _require_column(df, left_key, "a join key", base_view)
-    right = get_frame(right_view)
     if right_key not in right.columns:
         raise QueryError(
-            f"Column '{right_key}' does not exist in {VIEW_SHEETS[right_view]}. "
+            f"Column '{right_key}' does not exist in {right_label}. "
             f"Available: {', '.join(right.columns)}."
         )
 
@@ -473,11 +542,19 @@ def apply_join(df: pd.DataFrame, spec: dict[str, Any], base_view: str) -> tuple[
     for col in bring:
         if col not in right.columns:
             raise QueryError(
-                f"Cannot bring '{col}' from {VIEW_SHEETS[right_view]}. "
+                f"Cannot bring '{col}' from {right_label}. "
                 f"Available: {', '.join(right.columns)}."
             )
     if not bring:
         bring = [c for c in right.columns if c != right_key][:4]
+
+    # The key is often listed among the columns to bring, which is a reasonable
+    # thing to ask for and would otherwise select it twice and break the merge.
+    bring = [c for c in dict.fromkeys(bring) if c != right_key]
+    if not bring:
+        # Asking for only the key is a harmless mistake - the base data already
+        # has it. Bring the whole record rather than refusing over wording.
+        bring = [c for c in right.columns if c != right_key][:6]
 
     left_keys = df[left_key].astype(str).str.strip()
     # vlookup takes the first match, so collapse duplicates rather than
@@ -490,7 +567,7 @@ def apply_join(df: pd.DataFrame, spec: dict[str, Any], base_view: str) -> tuple[
     if not overlap:
         raise QueryError(
             f"'{left_key}' in {VIEW_SHEETS[base_view]} and '{right_key}' in "
-            f"{VIEW_SHEETS[right_view]} have no values in common, so they cannot "
+            f"{right_label} have no values in common, so they cannot "
             f"be combined. Examples: {sorted(set(left_keys))[:2]} against "
             f"{sorted(set(right_slim[right_key]))[:2]}. These views do not share "
             "a key in this dataset."
@@ -821,6 +898,14 @@ def compute_peak(df: pd.DataFrame, view: str, measure: str, timestamp_col: str,
     """
     _require_column(df, measure, "the peak measure", view)
     _require_column(df, timestamp_col, "the peak timestamp", view)
+    if df.empty:
+        # Blaming the timestamp column here sends the reader to investigate the
+        # wrong thing: the column is fine, the filters simply matched nothing.
+        raise QueryError(
+            "No records matched the filters, so there is no intraday position to "
+            "measure. Widen the filters, or check that the values filtered on "
+            "actually occur in this data."
+        )
     df = _as_numeric(df, measure)
 
     stamps = pd.to_datetime(df[timestamp_col], errors="coerce")
@@ -1066,7 +1151,7 @@ def run_query(
     sort_by: str | None = None,
     sort_desc: bool = True,
     limit: int | None = None,
-    join: dict[str, Any] | None = None,
+    join: dict[str, Any] | list[dict[str, Any]] | None = None,
     derived: list[dict[str, Any]] | None = None,
     rate: dict[str, Any] | None = None,
     add_share_of_total: bool = False,
@@ -1086,9 +1171,17 @@ def run_query(
 
     # Order matters: bring in looked-up columns first, then calculate from them,
     # so both are available to filter on.
-    join_info: dict[str, Any] | None = None
+    # Joins may be chained: the second hop keys off a column the first brought
+    # in. That is how a question reaches an attribute two steps away - a
+    # counterparty's country, and then that country's sanctions regime.
+    join_info: list[dict[str, Any]] | dict[str, Any] | None = None
     if join:
-        df, join_info = apply_join(df, join, view)
+        hops = join if isinstance(join, list) else [join]
+        collected = []
+        for hop in hops:
+            df, info = apply_join(df, hop, view)
+            collected.append(info)
+        join_info = collected if len(collected) > 1 else collected[0]
 
     derived_columns: list[str] = []
     if derived:
@@ -1387,11 +1480,25 @@ def run_query(
                         "sum would not be a meaningful denominator."
                     )
 
-                total = result[share_source].sum()
+                values = result[share_source]
+                # Debits and credits offset, so a share of the net total can be
+                # negative or exceed 100% and describes nothing. Gross flow is
+                # the honest denominator when the signs are mixed.
+                mixed_sign = bool((values > 0).any() and (values < 0).any())
+                total = values.abs().sum() if mixed_sign else values.sum()
                 if total:
-                    share_name = f"% of total {share_label}"
-                    result[share_name] = (result[share_source] / total * 100).round(2)
+                    share_name = (f"% of gross {share_label}" if mixed_sign
+                                  else f"% of total {share_label}")
+                    result[share_name] = (values.abs() / total * 100).round(2) \
+                        if mixed_sign else (values / total * 100).round(2)
                     measure_columns.append(share_name)
+                    if mixed_sign:
+                        currency_notes.append(
+                            "Shares are calculated on gross flow because the "
+                            "figures include both debits and credits: as a share "
+                            "of the net total they would exceed 100% and could be "
+                            "negative."
+                        )
                 if share_source == "__share_base__":
                     result = result.drop(columns="__share_base__")
             if add_cumulative and primary_measure:

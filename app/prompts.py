@@ -48,7 +48,10 @@ Return a JSON object with exactly these keys:
                 {"name": "<name>", "duration_from": "<timestamp>", "duration_to": "<timestamp>", "unit": "<minutes|hours|days>"},
                 {"part_of": "<timestamp column>", "part": "<hour_of_day|weekday|day_of_month|week_of_year|month>"}],
     "rate": {"name": "<e.g. Failure rate %>", "where": { ...a filter or an any-group... }},
-    "join": {"view": "<other view>", "on": {"left": "<key here>", "right": "<key there>"}, "bring": ["<columns to pull in>"]},
+    "join": {"view": "<other view or reference table>", "on": {"left": "<key here>"}, "bring": ["<columns to pull in>"]},
+    // or a LIST of joins, to reach an attribute two hops away:
+    // [{"view":"counterparty_master","on":{"left":"Counterparty"},"bring":["Country of Incorporation"]},
+    //  {"view":"country_master","on":{"left":"Country of Incorporation"},"bring":["Sanctions Regime"]}]
     "add_share_of_total": false,
     "add_cumulative": false
   },
@@ -167,8 +170,30 @@ CALCULATIONS AND COMBINING:
   side and the columns to bring across. Only reach for it when the question truly
   spans two views.
 
-IMPORTANT about joining in THIS dataset: the three views do not currently share
-any key. Account numbers in the Client View and the Business Ledger View are
+REFERENCE LOOKUPS. Anything about a *property* of a thing rather than the
+transactions themselves needs a reference table: a counterparty's country,
+rating or sector; an account's type, status or product; a currency's
+convertibility; a venue's cut-off; a desk's business line; an entity's
+regulator. Join to the table, bring the attribute across, then group or filter
+on it.
+
+Chain two joins ONLY when you need an attribute the first hop did not already
+give you. The first hop brings the country NAME across, so:
+
+- "usage for Russian counterparties" needs ONE hop. Join counterparty_master,
+  bring "Country of Incorporation", and filter that column on "Russia". Adding
+  country_master to fetch "Country" is a second hop for a value you already
+  have, and filters on a column that is not there.
+- "exposure by sanctions regime" or "by jurisdiction risk tier" needs TWO hops,
+  because those are attributes OF the country: counterparty_master brings
+  "Country of Incorporation", then country_master keys off that column and
+  brings "Sanctions Regime" or "Jurisdiction Risk Tier".
+
+Never list a table's own key in "bring" - the join already carries it. Bring the
+attributes you actually want to group or filter on.
+
+IMPORTANT about joining the three TRANSACTION views to each other: they do not
+share any key. Account numbers in the Client View and the Business Ledger View are
 different populations, and transfer references do not appear in the ledger. If a
 question needs two views combined, say so honestly in "limitations" - that the
 views cannot be linked because no common key exists - rather than joining on
@@ -479,6 +504,18 @@ def _derived_columns_block() -> str:
     return "\n".join(lines)
 
 
+def _reference_block() -> str:
+    """Reference tables and the one key each joins on."""
+    tables = data_access.reference_summary()
+    if not tables:
+        return "No reference tables are loaded."
+    lines = []
+    for name, spec in tables.items():
+        attrs = ", ".join(spec["attributes"])
+        lines.append(f"- {name} (key: {spec['key_column']}, {spec['rows']} rows): {attrs}")
+    return "\n".join(lines)
+
+
 def _context_block() -> str:
     meta = data_access.get_metadata()
     fx = ", ".join(f"{k}={v}" for k, v in meta["fx_rates"].items())
@@ -497,6 +534,10 @@ CONTROLS/FILTERS IN EFFECT ON THE SOURCE SCREENS:
 
 FX RATES USED FOR DISPLAY-CURRENCY TRANSLATION (static, synthetic, GBP per 1 local unit):
 {fx}
+
+REFERENCE TABLES - attributes that can be joined onto the transaction data.
+Each has a single key column, so "on" only needs the column on YOUR side:
+{_reference_block()}
 """.strip()
 
 

@@ -340,7 +340,10 @@ def _summarise_query(query: dict[str, Any], chart_type: str) -> str:
     if query.get("add_cumulative"):
         parts.append("with a running total")
     if query.get("join"):
-        parts.append(f"combined with {query['join'].get('view', '')} data")
+        hops = query["join"] if isinstance(query["join"], list) else [query["join"]]
+        names = [h.get("view", "") for h in hops if isinstance(h, dict)]
+        if names:
+            parts.append("combined with " + " then ".join(names))
     if query.get("limit"):
         parts.append(f"limited to the top {query['limit']}")
 
