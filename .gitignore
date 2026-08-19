@@ -7,5 +7,9 @@ exports/
 # Anonymisation golden source - real values, never committed
 anonymisation/
 
-# Saved view configurations are local working state
-saved_views.json
+# saved_views.json IS committed. It holds the curated view specifications -
+# the questions, not their results - so the deployed app starts with the
+# reviewed set rather than an empty list. Regenerate with seed_views.py.
+# Note the trade-off: a redeploy restores this set over anything users saved
+# on the server, which is the right default while the curated list is the
+# deliverable.

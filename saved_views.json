@@ -1,0 +1,879 @@
+[
+  {
+    "id": "93105c135385",
+    "name": "Peak intraday liquidity usage",
+    "description": "Largest intraday position per currency per day, worst first, with the time it peaked and where the day closed. The BCBS 248 monitoring shape.",
+    "user_query": "What was our peak intraday liquidity usage by currency? Show the cumulative net position through the day and where it peaked.",
+    "understood": "The request is to identify the peak intraday liquidity usage by currency, showing the cumulative net position throughout the day and indicating where it peaked.",
+    "query": {
+      "view": "business_ledger",
+      "mode": "peak",
+      "filters": [],
+      "group_by": [
+        "CCY (Local)"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Amount (Display)"
+        }
+      ],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": true,
+      "limit": 15,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": true
+    },
+    "chart_type": "table",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "The display currency is GBP, using static synthetic FX rates for translation.",
+      "The data is synthetic and non-production, with all identifiers and amounts fabricated."
+    ],
+    "dependencies": [
+      "The calculation of peak intraday liquidity usage depends on the completeness of transaction data within each day."
+    ],
+    "saved_at": "2026-08-19T15:16:42"
+  },
+  {
+    "id": "0ba835bf8fad",
+    "name": "Currency concentration",
+    "description": "Transfer value by currency with each currency's share of the GBP-equivalent total, largest first.",
+    "user_query": "Show total transfer value by currency with each currency's share of the total, largest first.",
+    "understood": "I will build a view showing the total transfer value by currency, including each currency's share of the total, sorted from largest to smallest.",
+    "query": {
+      "view": "nostro_transfer",
+      "mode": "aggregate",
+      "filters": [],
+      "group_by": [
+        "Currency"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Value Amount",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": "Value Amount",
+      "sort_desc": true,
+      "limit": null,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": true,
+      "add_cumulative": false
+    },
+    "chart_type": "bar",
+    "limitations": [
+      "The amounts are in different currencies and are therefore not directly comparable or summable.",
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "Data classification: Synthetic / non-production."
+    ],
+    "dependencies": [],
+    "saved_at": "2026-08-19T15:16:50"
+  },
+  {
+    "id": "2cae5616a65e",
+    "name": "Top counterparty concentration",
+    "description": "The ten counterparties carrying most ledger flow, with their share of the total.",
+    "user_query": "Which counterparties account for the largest share of ledger flow? Show the top ten with their share of the total.",
+    "understood": "Identify the top ten counterparties that contribute the most to the ledger flow and display their share of the total flow.",
+    "query": {
+      "view": "business_ledger",
+      "mode": "aggregate",
+      "filters": [],
+      "group_by": [
+        "Counterparty"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Amount (Display)",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": "Amount (Display)",
+      "sort_desc": true,
+      "limit": 10,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": true,
+      "add_cumulative": false
+    },
+    "chart_type": "barh",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "Amounts are translated using static synthetic FX rates to GBP.",
+      "Data classification: Synthetic / non-production."
+    ],
+    "dependencies": [
+      "Display currency is set to GBP."
+    ],
+    "saved_at": "2026-08-19T15:16:57"
+  },
+  {
+    "id": "3daeb1f5e813",
+    "name": "Intraday flow timing",
+    "description": "Credits against debits by hour for the most recent day, showing when money arrives versus when it leaves.",
+    "user_query": "Show the intraday profile of ledger flows by hour, separating debits from credits, so I can see when money arrives versus when it leaves.",
+    "understood": "The user wants to see the intraday profile of ledger flows by hour, distinguishing between debits and credits to understand when money arrives and when it leaves.",
+    "query": {
+      "view": "business_ledger",
+      "mode": "aggregate",
+      "filters": [],
+      "group_by": [
+        "Debit/Credit Mark"
+      ],
+      "time_bucket": {
+        "column": "Transaction Timestamp",
+        "granularity": "hour"
+      },
+      "measures": [
+        {
+          "column": "Amount (Display)",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": "Transaction Timestamp (hour)",
+      "sort_desc": false,
+      "limit": null,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "line",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "Display currency is GBP, using synthetic FX rates.",
+      "Includes cancelled trades as per the source screen setting.",
+      "Data classification: Synthetic / non-production."
+    ],
+    "dependencies": [
+      "The accuracy of the intraday profile depends on the completeness of transaction timestamps."
+    ],
+    "saved_at": "2026-08-19T15:17:11"
+  },
+  {
+    "id": "80af60570a8f",
+    "name": "Approval queue by ageing",
+    "description": "Value awaiting approval, banded by how long it has been waiting.",
+    "user_query": "What is sitting in the approval queue, and how long has it been waiting? I want to see the value at risk in each ageing band.",
+    "understood": "Identify transfers that are pending approval and categorize them by how long they have been waiting, showing the value amount in each ageing band.",
+    "query": {
+      "view": "nostro_transfer",
+      "mode": "aggregate",
+      "filters": [
+        {
+          "column": "Transfer Status",
+          "operator": "eq",
+          "value": "PENDING_APPROVAL"
+        }
+      ],
+      "group_by": [
+        "Waiting band"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Value Amount (Display)",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": true,
+      "limit": null,
+      "join": null,
+      "derived": [
+        {
+          "name": "Waiting",
+          "age_of": "Created Time",
+          "unit": "hours"
+        }
+      ],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "bar",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "The amounts are translated using static synthetic FX rates to GBP.",
+      "The data is synthetic and non-production."
+    ],
+    "dependencies": [
+      "The accuracy of the waiting time depends on the completeness of the 'Created Time' data."
+    ],
+    "saved_at": "2026-08-19T15:17:22"
+  },
+  {
+    "id": "5758d5e64a6a",
+    "name": "Daily flow trend",
+    "description": "Daily transfer value across the period against the period average, with unusual days marked.",
+    "user_query": "Show total daily transfer value across the month so I can see which days were unusual.",
+    "understood": "Provide the total daily transfer value for each day across the month to identify any unusual days.",
+    "query": {
+      "view": "nostro_transfer",
+      "mode": "aggregate",
+      "filters": [],
+      "group_by": [],
+      "time_bucket": {
+        "column": "Value Date",
+        "granularity": "day"
+      },
+      "measures": [
+        {
+          "column": "Value Amount",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": "Value Date (day)",
+      "sort_desc": false,
+      "limit": null,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "line",
+    "limitations": [
+      "The amounts are in different currencies and are therefore not directly comparable or summable.",
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "Data classification: Synthetic / non-production."
+    ],
+    "dependencies": [],
+    "saved_at": "2026-08-19T15:17:29"
+  },
+  {
+    "id": "11235da04ad0",
+    "name": "Largest individual movements",
+    "description": "The twenty largest ledger transactions with counterparty, account and both local and display amounts.",
+    "user_query": "List the twenty largest ledger transactions this month with counterparty, account, currency and amount.",
+    "understood": "The user wants to see a list of the twenty largest business ledger transactions for this month, including details such as the counterparty, account, currency, and amount.",
+    "query": {
+      "view": "business_ledger",
+      "mode": "list",
+      "filters": [
+        {
+          "column": "Value Date",
+          "operator": "gte",
+          "value": "2026-08-01"
+        }
+      ],
+      "group_by": [],
+      "time_bucket": null,
+      "measures": [],
+      "columns": [
+        "Transaction Reference",
+        "Account",
+        "Counterparty",
+        "CCY (Local)",
+        "Amount (Local)",
+        "Amount (Display)"
+      ],
+      "sort_by": "Amount (Display)",
+      "sort_desc": true,
+      "limit": 20,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "table",
+    "limitations": [
+      "The view is scoped to transactions from 2026-07-20 to 2026-08-18.",
+      "Amounts are translated using static synthetic FX rates for display currency.",
+      "Data is synthetic and non-production."
+    ],
+    "dependencies": [
+      "Display currency translation depends on static synthetic FX rates."
+    ],
+    "saved_at": "2026-08-19T15:17:35"
+  },
+  {
+    "id": "d067a1ec0d7b",
+    "name": "Reconciliation breaks by account",
+    "description": "Accounts with reconciliation breaks, showing how many days each broke and the total difference, so repeat offenders are visible rather than every individual break.",
+    "user_query": "Which client accounts had reconciliation breaks? For each one show how many days it broke and the total difference, worst first, so I can see the repeat offenders rather than every individual break.",
+    "understood": "Identify client accounts with reconciliation breaks, showing the number of days each account had breaks and the total difference, sorted by the largest total difference to highlight repeat offenders.",
+    "query": {
+      "view": "client",
+      "mode": "aggregate",
+      "filters": [
+        {
+          "column": "Match",
+          "operator": "eq",
+          "value": "unmatched"
+        }
+      ],
+      "group_by": [
+        "Account",
+        "Account Name",
+        "Currency"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Difference (Local)",
+          "aggregation": "sum"
+        },
+        {
+          "column": "Value Date",
+          "aggregation": "nunique"
+        }
+      ],
+      "columns": [],
+      "sort_by": "Difference (Local)",
+      "sort_desc": true,
+      "limit": null,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "table",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "The differences are in local currency and cannot be summed across different currencies without conversion.",
+      "Data completeness depends on the match tolerance setting of 0.01."
+    ],
+    "dependencies": [
+      "The calculation of differences depends on the synthetic FX rates used for display-currency translation."
+    ],
+    "saved_at": "2026-08-19T15:17:43"
+  },
+  {
+    "id": "4de6f1fcb82d",
+    "name": "Payment failures and rejections",
+    "description": "Failed and rejected transfers by status, with count and value at risk. States that the failure reason is not captured anywhere in the data.",
+    "user_query": "Break down transfers that failed or were rejected by their status, with the count and total value in each, and tell me why they failed.",
+    "understood": "You want a breakdown of transfers that either failed or were rejected, categorized by their status, with a count and total value for each category. Additionally, you want to know the reasons for their failure.",
+    "query": {
+      "view": "nostro_transfer",
+      "mode": "aggregate",
+      "filters": [
+        {
+          "any": [
+            {
+              "column": "Transfer Status",
+              "operator": "eq",
+              "value": "FAILED"
+            },
+            {
+              "column": "Message Status",
+              "operator": "contains",
+              "value": "REJECTED"
+            }
+          ]
+        }
+      ],
+      "group_by": [
+        "Transfer Status"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "aggregation": "count"
+        },
+        {
+          "column": "Value Amount",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": true,
+      "limit": null,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "bar",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "Amounts are in different currencies and are not directly comparable or summable without conversion.",
+      "The data does not contain a field for the specific reasons why transfers failed."
+    ],
+    "dependencies": [
+      "Data classification: Synthetic / non-production."
+    ],
+    "saved_at": "2026-08-19T15:17:51"
+  },
+  {
+    "id": "f1d01b7e4701",
+    "name": "Desk performance",
+    "description": "Ledger flow by desk with each desk's share. States that legal entity cannot be attributed to the ledger view.",
+    "user_query": "Compare our desks: total ledger flow by sub branch, with each desk's share, and break it down by legal entity as well.",
+    "understood": "Provide a breakdown of total ledger flow by sub branch, including each desk's share of the total, and further break it down by legal entity.",
+    "query": {
+      "view": "business_ledger",
+      "mode": "aggregate",
+      "filters": [],
+      "group_by": [
+        "Sub Branch"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Amount (Display)",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": true,
+      "limit": null,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": true,
+      "add_cumulative": false
+    },
+    "chart_type": "barh",
+    "limitations": [
+      "The Business Ledger View does not contain a 'Legal Entity' column, so it cannot be broken down by legal entity.",
+      "The view is scoped to the synthetic cash management business group and includes cancelled trades.",
+      "Data is synthetic and non-production."
+    ],
+    "dependencies": [
+      "Display currency is GBP, using static synthetic FX rates."
+    ],
+    "saved_at": "2026-08-19T15:18:01"
+  },
+  {
+    "id": "d9325457cf7a",
+    "name": "Funding efficiency",
+    "description": "Credits against debits by hour for the most recent day, with a running total, showing whether inflows arrived before outflows.",
+    "user_query": "For the most recent day, show credits and debits by hour with the running net position, so I can see whether inflows arrived before outflows.",
+    "understood": "Provide a breakdown of credits and debits by hour for the most recent day, along with the running net position to assess the timing of inflows versus outflows.",
+    "query": {
+      "view": "business_ledger",
+      "mode": "aggregate",
+      "filters": [],
+      "group_by": [
+        "Debit/Credit Mark"
+      ],
+      "time_bucket": {
+        "column": "Transaction Timestamp",
+        "granularity": "hour"
+      },
+      "measures": [
+        {
+          "column": "Amount (Display)",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": "Transaction Timestamp (hour)",
+      "sort_desc": false,
+      "limit": null,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": true
+    },
+    "chart_type": "line",
+    "limitations": [
+      "The view is scoped to the most recent day in the data, which is 2026-08-18.",
+      "The running net position is calculated using the display currency (GBP) with static synthetic FX rates.",
+      "The data is synthetic and non-production, so identifiers and amounts are fabricated."
+    ],
+    "dependencies": [
+      "The running net position depends on the accuracy of the transaction timestamps and amounts."
+    ],
+    "saved_at": "2026-08-19T15:18:09"
+  },
+  {
+    "id": "031278466530",
+    "name": "Cut-off risk",
+    "description": "Value settling after 16:00, by currency and desk. Late concentration is where an operational delay becomes a liquidity problem.",
+    "user_query": "How much ledger value settles after 16:00 each day, and which currencies and desks does it sit in?",
+    "understood": "Determine the total ledger value that settles after 16:00 each day, broken down by currency and desk.",
+    "query": {
+      "view": "business_ledger",
+      "mode": "aggregate",
+      "filters": [
+        {
+          "column": "Hour of day",
+          "operator": "gte",
+          "value": "16:00"
+        }
+      ],
+      "group_by": [
+        "CCY (Local)",
+        "Sub Branch"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Amount (Display)",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": true,
+      "limit": null,
+      "join": null,
+      "derived": [
+        {
+          "part_of": "Transaction Timestamp",
+          "part": "hour_of_day"
+        }
+      ],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "bar",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "The amounts are translated using static synthetic FX rates to GBP.",
+      "The data is synthetic and non-production."
+    ],
+    "dependencies": [
+      "The accuracy of the settlement time depends on the completeness of the transaction timestamps."
+    ],
+    "saved_at": "2026-08-19T15:18:15"
+  },
+  {
+    "id": "9e3bfd74be4a",
+    "name": "Approval turnaround",
+    "description": "Median and 95th percentile time from creation to approval. The queue view says what is waiting; this says how long waiting normally lasts.",
+    "user_query": "How long does it take for transfers to go from created to approved? Show the median and 95th percentile turnaround by desk.",
+    "understood": "Calculate the median and 95th percentile turnaround time for transfers from creation to approval, grouped by desk.",
+    "query": {
+      "view": "nostro_transfer",
+      "mode": "aggregate",
+      "filters": [
+        {
+          "column": "Approved Time",
+          "operator": "not_null"
+        }
+      ],
+      "group_by": [
+        "Sending Strategy"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Turnaround (minutes)",
+          "aggregation": "median"
+        },
+        {
+          "column": "Turnaround (minutes)",
+          "aggregation": "p95"
+        }
+      ],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": true,
+      "limit": null,
+      "join": null,
+      "derived": [
+        {
+          "name": "Turnaround",
+          "duration_from": "Created Time",
+          "duration_to": "Approved Time",
+          "unit": "minutes"
+        }
+      ],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "barh",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "Display currency is GBP, but it does not affect the turnaround time calculation.",
+      "Data classification: Synthetic / non-production."
+    ],
+    "dependencies": [
+      "Turnaround time is calculated from 'Created Time' and 'Approved Time' timestamps."
+    ],
+    "saved_at": "2026-08-19T15:18:22"
+  },
+  {
+    "id": "2e932f1fc0f6",
+    "name": "Reconciliation break trend",
+    "description": "Breaks per day across the period against the average, with unusual days marked, so it is clear whether breaks are growing or being cleared.",
+    "user_query": "Show the number of reconciliation breaks per day across the month, in date order, so I can see whether breaks are growing or being cleared.",
+    "understood": "The user wants to see the number of reconciliation breaks per day over the month to observe trends in breaks being cleared or growing.",
+    "query": {
+      "view": "client",
+      "mode": "aggregate",
+      "filters": [
+        {
+          "column": "Match",
+          "operator": "eq",
+          "value": "unmatched"
+        }
+      ],
+      "group_by": [
+        "Value Date"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "aggregation": "count"
+        }
+      ],
+      "columns": [],
+      "sort_by": "Value Date",
+      "sort_desc": false,
+      "limit": null,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "line",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "The data is synthetic and non-production.",
+      "The reconciliation Match result depends on the match tolerance setting."
+    ],
+    "dependencies": [],
+    "saved_at": "2026-08-19T15:18:29"
+  },
+  {
+    "id": "f98edf2e4292",
+    "name": "Currency net position",
+    "description": "Net position by currency across the period - which currencies we are structurally short of and long in.",
+    "user_query": "Show the net position by currency across the month - credits less debits - so I can see which currencies we are structurally short of.",
+    "understood": "You want to see the net position by currency for the month, calculated as credits minus debits, to identify which currencies are in deficit.",
+    "query": {
+      "view": "client",
+      "mode": "aggregate",
+      "filters": [],
+      "group_by": [
+        "Currency"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Net Position",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": true,
+      "limit": null,
+      "join": null,
+      "derived": [
+        {
+          "name": "Net Position",
+          "left": "Credits (Display)",
+          "op": "-",
+          "right": "Debits (Display)"
+        }
+      ],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "bar",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "The net position is calculated using static synthetic FX rates for display currency translation.",
+      "This is synthetic, non-production data."
+    ],
+    "dependencies": [
+      "The calculation depends on the accuracy of the Credits (Display) and Debits (Display) columns."
+    ],
+    "saved_at": "2026-08-19T15:18:36"
+  },
+  {
+    "id": "a3c5f6783ae3",
+    "name": "Venue reliability",
+    "description": "Failure and rejection rate by venue, as a proportion of what we send them. A rate, not a count - three failures in five beats ten in a thousand.",
+    "user_query": "Which venues have the highest rate of failed or rejected transfers, relative to the total volume we send them?",
+    "understood": "Identify the venues with the highest failure rate for transfers, considering both failed and rejected statuses, relative to the total volume sent to them.",
+    "query": {
+      "view": "nostro_transfer",
+      "mode": "aggregate",
+      "filters": [],
+      "group_by": [
+        "Target Account Venue Location"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "aggregation": "count"
+        }
+      ],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": true,
+      "limit": 10,
+      "join": null,
+      "derived": [],
+      "rate": {
+        "name": "Failure rate %",
+        "where": {
+          "any": [
+            {
+              "column": "Transfer Status",
+              "operator": "eq",
+              "value": "FAILED"
+            },
+            {
+              "column": "Message Status",
+              "operator": "contains",
+              "value": "REJECTED"
+            }
+          ]
+        }
+      },
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "barh",
+    "limitations": [
+      "The amounts are in different currencies and are therefore not directly comparable or summable.",
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "Display currency is set to GBP, but the Value Amount is in the transfer's own currency.",
+      "Data classification: Synthetic / non-production."
+    ],
+    "dependencies": [],
+    "saved_at": "2026-08-19T15:18:44"
+  },
+  {
+    "id": "1909096ed9e9",
+    "name": "Balance volatility by account",
+    "description": "Accounts ranked by how much their daily balance swings. Volatile balances are where buffers are set and forecasting is hardest.",
+    "user_query": "Which client accounts have the most volatile daily balance swing? Show the spread of their daily swing, largest first.",
+    "understood": "Identify client accounts with the most volatile daily balance swing and show the spread of their daily swing, sorted by the largest swing first.",
+    "query": {
+      "view": "client",
+      "mode": "distribution",
+      "filters": [],
+      "group_by": [
+        "Account"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Swing (Display)"
+        }
+      ],
+      "columns": [],
+      "sort_by": "Spread",
+      "sort_desc": true,
+      "limit": 10,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "table",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "The daily swing is calculated in the display currency (GBP) using static synthetic FX rates.",
+      "Data classification: Synthetic / non-production."
+    ],
+    "dependencies": [
+      "The calculation of the swing depends on the accuracy and completeness of the transaction data received for each account."
+    ],
+    "saved_at": "2026-08-19T15:19:01"
+  },
+  {
+    "id": "ead1c07081a1",
+    "name": "Weekday flow pattern",
+    "description": "Ledger flow by day of the week, to see which days are consistently heavier.",
+    "user_query": "Compare total daily ledger flow by day of the week, so I can see which days are consistently heavier.",
+    "understood": "The user wants to compare the total daily ledger flow by day of the week to identify which days are consistently heavier.",
+    "query": {
+      "view": "business_ledger",
+      "mode": "aggregate",
+      "filters": [],
+      "group_by": [
+        "Day of week"
+      ],
+      "time_bucket": null,
+      "measures": [
+        {
+          "column": "Amount (Display)",
+          "aggregation": "sum"
+        }
+      ],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": true,
+      "limit": null,
+      "join": null,
+      "derived": [
+        {
+          "part_of": "Transaction Timestamp",
+          "part": "weekday"
+        }
+      ],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "bar",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "The data is synthetic and non-production.",
+      "The measure uses static synthetic FX rates for display currency translation."
+    ],
+    "dependencies": [
+      "The accuracy of the flow comparison depends on the completeness of the transaction data."
+    ],
+    "saved_at": "2026-08-19T15:19:08"
+  },
+  {
+    "id": "dcdde3c92c54",
+    "name": "Data completeness",
+    "description": "How populated every column of the ledger is, least complete first. Every other view inherits the quality of these fields.",
+    "user_query": "How complete is the business ledger data? Show every column with how many rows are populated and how many are missing, least complete first.",
+    "understood": "The user wants a data quality assessment of the business ledger data, showing the completeness of each column by indicating how many rows are populated and how many are missing, sorted by the least complete columns first.",
+    "query": {
+      "view": "business_ledger",
+      "mode": "quality",
+      "filters": [],
+      "group_by": [],
+      "time_bucket": null,
+      "measures": [],
+      "columns": [],
+      "sort_by": null,
+      "sort_desc": false,
+      "limit": null,
+      "join": null,
+      "derived": [],
+      "rate": null,
+      "add_share_of_total": false,
+      "add_cumulative": false
+    },
+    "chart_type": "barh",
+    "limitations": [
+      "The view is scoped to the value date range from 2026-07-20 to 2026-08-18.",
+      "Data completeness depends on whether all transactions have been received.",
+      "This is synthetic, non-production data."
+    ],
+    "dependencies": [],
+    "saved_at": "2026-08-19T15:19:15"
+  }
+]
