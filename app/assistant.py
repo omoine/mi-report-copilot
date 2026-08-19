@@ -75,6 +75,11 @@ DATA CLASSIFICATION: {meta['data_classification']}.
 AVAILABLE VIEWS AND COLUMNS:
 {schema}
 
+REFERENCE TABLES - attributes that can be joined onto the transaction data.
+Each has a single key column, so a lookup only needs the column on the
+transaction side. An attribute listed here IS available, through a join:
+{prompts._reference_block()}
+
 WHAT THE TOOL CAN DO:
 - totals, averages, counts and percentiles, broken down by any column
 - listings of matching records, sorted and limited
@@ -114,17 +119,36 @@ def _has_report(session: Any) -> bool:
     return bool(getattr(session, "report", None))
 
 
-def build_system_prompt(session: Any) -> str:
-    """Design guidance before a report exists, grounded explanation after."""
-    if not _has_report(session):
-        return f"{DESIGN_RULES}\n\n{_design_context()}"
+def build_system_prompt(session: Any, message: str = "") -> str:
+    """Design guidance before a report exists, grounded explanation after.
 
-    report = dict(session.report)
-    report["history"] = session.history
-    document = md_export.render_markdown(report)
-    return (f"{EXPLAIN_RULES}\n\n"
-            f"--- THE REPORT'S SUPPORTING DOCUMENT (the export, verbatim) ---\n"
-            f"{document}")
+    Both modes are told where the values named in the question actually live.
+    Without it the assistant answers "there is no such field" beside a tool that
+    is about to answer the same question correctly, and the reader has no way to
+    tell which of the two is right.
+    """
+    resolved = prompts._resolved_values_block(message)
+
+    if not _has_report(session):
+        parts = [DESIGN_RULES, _design_context()]
+    else:
+        report = dict(session.report)
+        report["history"] = session.history
+        document = md_export.render_markdown(report)
+        parts = [
+            EXPLAIN_RULES,
+            "--- THE REPORT'S SUPPORTING DOCUMENT (the export, verbatim) ---\n"
+            + document,
+            # Figures still come from the document above. This is here only so a
+            # question about what ELSE could be built is not answered with a
+            # denial of data the tool holds.
+            "--- WHAT ELSE THE DATA MODEL OFFERS (not figures - availability "
+            "only) ---\n" + prompts._reference_block(),
+        ]
+
+    if resolved:
+        parts.append(resolved)
+    return "\n\n".join(parts)
 
 
 def answer(session: Any, message: str, history: list[dict[str, str]],
@@ -141,7 +165,8 @@ def answer(session: Any, message: str, history: list[dict[str, str]],
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": message.strip()})
 
-    reply = provider.complete_text(build_system_prompt(session), messages)
+    reply = provider.complete_text(
+        build_system_prompt(session, message), messages)
 
     # A suggested prompt is offered as a button rather than left for the user to
     # retype, since retyping is where the intent gets lost.
