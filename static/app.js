@@ -88,6 +88,7 @@ function renderInterpretation(data) {
     html += '</div>';
   }
 
+  html += renderUnavailable(data.unavailable);
   html += `<p>Would you like me to build this MI report?</p>
     <div class="btn-row">
       <button class="flow-btn" onclick="confirmBuild()">Yes, build the report</button>
@@ -134,6 +135,19 @@ function renderTable(table) {
   return html;
 }
 
+function renderUnavailable(items) {
+  if (!items || !items.length) return '';
+  const rows = items.map((u) => `
+    <li><strong>${escapeHtml(u.concept)}</strong>
+      ${u.reason ? ` &mdash; ${escapeHtml(u.reason)}` : ''}
+      ${u.needed ? `<div class="gap-needed">Would need: ${escapeHtml(u.needed)}</div>` : ''}
+    </li>`).join('');
+  return `<div class="gaps">
+      <h3>What this view cannot tell you</h3>
+      <ul>${rows}</ul>
+    </div>`;
+}
+
 function renderHeadline(items) {
   if (!items || !items.length) return '';
   return `<div class="headline">${items.map((h) => `
@@ -147,6 +161,7 @@ function renderHeadline(items) {
 function renderReport(data) {
   let html = `<div class="who">Report</div><h3 style="margin:0 0 8px">${escapeHtml(data.title)}</h3>`;
   html += renderHeadline(data.headline);
+  html += renderUnavailable(data.unavailable);
 
   if (data.chart_url) {
     html += `<div class="chart-wrap"><img src="${escapeHtml(data.chart_url)}" alt="${escapeHtml(data.title)}"></div>`;

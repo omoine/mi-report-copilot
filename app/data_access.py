@@ -845,6 +845,13 @@ def _normalise_measures(
             out.append({"column": "", "aggregation": "count", "label": "count"})
             continue
         _require_column(df, col, "a measure", view)
+        if agg == "count":
+            # Counting a named column is a count of its populated values, and
+            # must not be labelled as the column itself - that produced a header
+            # promising dates above a column of counts, and an empty one beside it.
+            out.append({"column": col, "aggregation": "count",
+                        "label": f"count of {col}"})
+            continue
         out.append({"column": col, "aggregation": agg, "label": col})
 
     # Two aggregations of the same column would collide on the column name, so
@@ -1082,7 +1089,9 @@ def run_query(
             frames = []
             for m in resolved_measures:
                 if m["aggregation"] == "count":
-                    part = df.groupby(group_by, dropna=False).size().rename("count")
+                    grouped = df.groupby(group_by, dropna=False)
+                    part = (grouped[m["column"]].count() if m["column"]
+                            else grouped.size()).rename(m["label"])
                 else:
                     part = (df.groupby(group_by, dropna=False)[m["column"]]
                             .apply(lambda s, how=m["aggregation"]: _aggregate_series(s, how))
@@ -1215,7 +1224,8 @@ def run_query(
             row = {}
             for m in resolved_measures:
                 if m["aggregation"] == "count":
-                    row["count"] = len(df)
+                    row[m["label"]] = (int(df[m["column"]].count()) if m["column"]
+                                       else len(df))
                 else:
                     value = _aggregate_series(df[m["column"]], m["aggregation"])
                     row[m["label"]] = value.item() if hasattr(value, "item") else value

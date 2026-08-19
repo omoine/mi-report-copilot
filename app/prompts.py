@@ -49,8 +49,11 @@ Return a JSON object with exactly these keys:
     "add_cumulative": false
   },
   "chart_type": "<bar | barh | line | table>",
-  "limitations": ["<specific caveat>", "..."],
+  "limitations": ["<specific caveat about what IS shown>", "..."],
   "dependencies": ["<specific dependency>", "..."],
+  "unavailable": [{"concept": "<what was asked for that the data cannot show>",
+                   "reason": "<why - which field is absent>",
+                   "needed": "<what would have to be captured to answer it>"}],
   "feasible": true
 }
 
@@ -204,6 +207,20 @@ Rules for the query:
   figure that does not mean what they think it means.
 - A request is feasible only if every concept in it maps to a real column. Partial
   matches are not enough. If in doubt, mark it infeasible and explain.
+
+- PARTIAL ANSWERS ARE THE NORMAL CASE. A request often has one part the data
+  supports and one it does not. Do NOT decline the whole thing, and do NOT
+  silently drop the part you cannot do - build the answerable part and record
+  what you dropped in "unavailable", saying which field is missing and what
+  would have to be captured.
+    "flow by desk and legal entity" -> build the desk breakdown, and record that
+      legal entity cannot be attributed to this view.
+    "failures and why they failed" -> build the failure counts, and record that
+      no failure-reason field exists.
+  A reader must be able to see, from the view itself, what it is not telling
+  them. A view that quietly answers a narrower question than the one asked is
+  worse than one that shows its own gap. Reserve "feasible": false for a request
+  where NOTHING can be answered.
 
 - BUT do not confuse a MISSING CONCEPT with a CALCULATION you have not been given
   ready-made. These are completely different:

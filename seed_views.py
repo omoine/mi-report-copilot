@@ -23,14 +23,10 @@ client = TestClient(main.app)
 
 # (name, description, prompt)
 #
-# Excluded deliberately, with the reason, so the gap is visible rather than
-# silently missing from the list:
-#   Reconciliation exceptions - returns every break in the period as a flat
-#     list. Needs materiality, ageing and repeat-offender counts first.
-#   Payment failures - the count is right but the breakdown fragments across
-#     currency and both venues, giving rows of one. Needs a coarser cut.
-#   Entity and desk performance - groups by ledger account rather than desk,
-#     and legal entity is not attributable to the ledger view at all.
+# The last three ask for something the data cannot supply - a failure reason, a
+# legal entity on the ledger. They are included anyway: the view answers what it
+# can and declares the rest under "what this view cannot tell you", so the gap
+# is visible in the output rather than hidden by a narrower question.
 VIEWS: list[tuple[str, str, str]] = [
     ("Peak intraday liquidity usage",
      "Largest intraday position per currency per day, worst first, with the "
@@ -72,6 +68,26 @@ VIEWS: list[tuple[str, str, str]] = [
      "both local and display amounts.",
      "List the twenty largest ledger transactions this month with counterparty, "
      "account, currency and amount."),
+
+    ("Reconciliation breaks by account",
+     "Accounts with reconciliation breaks, showing how many days each broke and "
+     "the total difference, so repeat offenders are visible rather than every "
+     "individual break.",
+     "Which client accounts had reconciliation breaks? For each one show how "
+     "many days it broke and the total difference, worst first, so I can see "
+     "the repeat offenders rather than every individual break."),
+
+    ("Payment failures and rejections",
+     "Failed and rejected transfers by status, with count and value at risk. "
+     "States that the failure reason is not captured anywhere in the data.",
+     "Break down transfers that failed or were rejected by their status, with "
+     "the count and total value in each, and tell me why they failed."),
+
+    ("Desk performance",
+     "Ledger flow by desk with each desk's share. States that legal entity "
+     "cannot be attributed to the ledger view.",
+     "Compare our desks: total ledger flow by sub branch, with each desk's "
+     "share, and break it down by legal entity as well."),
 ]
 
 

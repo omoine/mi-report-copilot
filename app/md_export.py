@@ -34,6 +34,19 @@ def _headline_block(items: list[dict[str, str]] | None) -> str:
     return "\n".join(lines)
 
 
+def _fmt_unavailable(items: list[dict[str, str]] | None) -> str:
+    """Concepts the data cannot supply, stated rather than left to be noticed."""
+    if not items:
+        return "_Nothing was asked for that this data cannot supply._"
+    lines = []
+    for item in items:
+        lines.append(f"- **{item.get('concept', '')}**"
+                     + (f" — {item['reason']}" if item.get("reason") else ""))
+        if item.get("needed"):
+            lines.append(f"  - *Would need:* {item['needed']}")
+    return "\n".join(lines)
+
+
 def _fmt_list(items: list[str], empty: str) -> str:
     return "\n".join(f"- {i}" for i in items) if items else f"_{empty}_"
 
@@ -150,6 +163,14 @@ def build_markdown(report: dict[str, Any], out_dir: Path, session_id: str,
 These are the caveats a reader should understand before acting on the figures above.
 
 {_fmt_list(report.get('limitations', []), 'No limitations recorded.')}
+
+## 4b. What this view cannot tell you
+
+Parts of the question the data cannot answer at all. These are gaps in what is
+captured, not caveats about the figures above - no amount of re-querying will
+produce them.
+
+{_fmt_unavailable(report.get('unavailable'))}
 
 ## 5. Dependencies
 

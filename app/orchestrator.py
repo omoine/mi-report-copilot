@@ -142,10 +142,22 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(limit, int):
         limit = None
 
+    unavailable = []
+    for item in payload.get("unavailable") or []:
+        if isinstance(item, str):
+            unavailable.append({"concept": item, "reason": "", "needed": ""})
+        elif isinstance(item, dict) and item.get("concept"):
+            unavailable.append({
+                "concept": str(item.get("concept", "")),
+                "reason": str(item.get("reason", "")),
+                "needed": str(item.get("needed", "")),
+            })
+
     return {
         "understood": payload.get("understood", ""),
         "limitations": [str(x) for x in payload.get("limitations", []) if x],
         "dependencies": [str(x) for x in payload.get("dependencies", []) if x],
+        "unavailable": unavailable,
         "chart_type": chart_type,
         "query": {
             "view": view,
@@ -188,6 +200,7 @@ def interpret(session: Session, user_query: str, provider: llm_client.LLMProvide
         "understood": interpretation["understood"],
         "limitations": interpretation["limitations"],
         "dependencies": interpretation["dependencies"],
+        "unavailable": interpretation.get("unavailable", []),
         "query_summary": _summarise_query(interpretation["query"], interpretation["chart_type"]),
     }
 
@@ -368,6 +381,7 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
         "understood": interp["understood"],
         "narrative": narrative,
         "limitations": limitations,
+        "unavailable": interp.get("unavailable", []),
         "dependencies": interp["dependencies"],
         "chart_path": chart["chart_path"],
         "chart_type": chart["chart_type"],
@@ -610,6 +624,7 @@ def _report_payload(session: Session) -> dict[str, Any]:
         "understood": report["understood"],
         "limitations": report["limitations"],
         "dependencies": report["dependencies"],
+        "unavailable": report.get("unavailable", []),
         "chart_url": f"/api/chart/{Path(chart_path).name}" if chart_path else None,
         "chart_notes": report["chart_notes"],
         "table": report["table"],

@@ -82,6 +82,15 @@ def _bullets(items: list[str], style: ParagraphStyle) -> Any:
     )
 
 
+def _bullets_html(items: list[str], style: ParagraphStyle) -> Any:
+    """Bullets whose text is already escaped and may carry simple markup."""
+    return ListFlowable(
+        [ListItem(Paragraph(i, style), leftIndent=12) for i in items],
+        bulletType="bullet", start="•", bulletFontSize=7,
+        bulletOffsetY=0.5, leftIndent=12,
+    )
+
+
 def _footer(canvas, doc) -> None:
     canvas.saveState()
     canvas.setFont("Helvetica", 7.5)
@@ -194,8 +203,27 @@ def build_pdf(report: dict[str, Any], out_dir: Path, session_id: str,
 
     # Caveats start a new page so they are never visually detached from nothing.
     story += [PageBreak(), Paragraph("Limitations of this view", st["h2"]),
-              _bullets(report.get("limitations", []), st["body"]),
-              Paragraph("Dependencies", st["h2"]),
+              _bullets(report.get("limitations", []), st["body"])]
+
+    # Stated as its own section: these are gaps in what is captured, not caveats
+    # about the figures, and no re-querying will close them.
+    gaps = report.get("unavailable") or []
+    story.append(Paragraph("What this view cannot tell you", st["h2"]))
+    if gaps:
+        lines = []
+        for gap in gaps:
+            text = f"<b>{_escape(gap.get('concept', ''))}</b>"
+            if gap.get("reason"):
+                text += f" &mdash; {_escape(gap['reason'])}"
+            if gap.get("needed"):
+                text += f"<br/><i>Would need: {_escape(gap['needed'])}</i>"
+            lines.append(text)
+        story.append(_bullets_html(lines, st["body"]))
+    else:
+        story.append(Paragraph(
+            "<i>Nothing was asked for that this data cannot supply.</i>", st["body"]))
+
+    story += [Paragraph("Dependencies", st["h2"]),
               _bullets(report.get("dependencies", []), st["body"]),
               Paragraph("How these figures were produced", st["h2"])]
 

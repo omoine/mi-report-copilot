@@ -31,15 +31,17 @@ VIEWS: list[tuple[int, str, str, str]] = [
      "cumulative net position through the day and where it peaked."),
 
     (2, "Reconciliation exceptions",
-     "Which balances did not reconcile, how big are the breaks, and which need "
-     "action today?",
-     "Show me all client accounts that failed reconciliation, with the size of "
-     "the difference, ordered by the largest break first."),
+     "Which balances did not reconcile, how big are the breaks, and which "
+     "accounts keep breaking?",
+     "Which client accounts had reconciliation breaks? For each one show how "
+     "many days it broke and the total difference, worst first, so I can see "
+     "the repeat offenders rather than every individual break."),
 
     (3, "Payment failures and rejections",
-     "What failed, what value was at risk, and is it concentrated anywhere?",
-     "How many transfers failed or were rejected, what was their total value, "
-     "and which currencies and venues were affected?"),
+     "What failed, what value was at risk, why did it fail, and is it "
+     "concentrated anywhere?",
+     "Break down transfers that failed or were rejected by their status, with "
+     "the count and total value in each, and tell me why they failed."),
 
     (4, "Currency concentration",
      "Where is our liquidity concentrated, and is any single currency an "
@@ -63,9 +65,9 @@ VIEWS: list[tuple[int, str, str, str]] = [
      "I want to see the value at risk in each ageing band."),
 
     (8, "Entity and desk performance",
-     "How does activity break down across legal entities and desks?",
-     "Show total ledger flow by sub branch and legal entity so I can compare "
-     "desks."),
+     "How does activity break down across desks, and across legal entities?",
+     "Compare our desks: total ledger flow by sub branch, with each desk's "
+     "share, and break it down by legal entity as well."),
 
     (9, "Day-over-day trend",
      "Is today normal? How does it compare with the rest of the month?",
@@ -92,6 +94,7 @@ def run_view(number: int, name: str, intent: str, prompt: str) -> dict:
     record["understood"] = interp.get("understood", "")
     record["query_summary"] = interp.get("query_summary", "")
     record["limitations"] = interp.get("limitations", [])
+    record["unavailable"] = interp.get("unavailable", [])
     record["dependencies"] = interp.get("dependencies", [])
 
     b = client.post("/api/confirm", json={"session_id": interp["session_id"]})
@@ -145,6 +148,16 @@ def to_markdown(records: list[dict]) -> str:
             out.append(f"_showing {len(r['rows'])} of {r['total_rows']} rows_")
 
         out += ["", f"**Commentary:** {r['narrative']}", ""]
+        if r.get("unavailable"):
+            out += ["**What this view cannot tell you:**", ""]
+            for u in r["unavailable"]:
+                line = f"- **{u.get('concept', '')}**"
+                if u.get("reason"):
+                    line += f" — {u['reason']}"
+                out.append(line)
+                if u.get("needed"):
+                    out.append(f"  - _Would need:_ {u['needed']}")
+            out.append("")
         if r["limitations"]:
             out += ["**Limitations stated:**", ""]
             out += [f"- {x}" for x in r["limitations"]]
