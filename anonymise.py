@@ -480,19 +480,50 @@ def cmd_audit(path: Path) -> int:
         print("Mapping is empty - nothing to audit against.")
         return 0
 
+    # Which category each real value came from, so a hit can be judged.
+    origin = {r.casefold(): cat
+              for cat, table in mapping["categories"].items()
+              for r, fake in table.items() if r != fake}
+
+    # Categories where a match is a genuine disclosure. Short numeric codes and
+    # generic vocabulary collide by chance - 6-digit codes have under a million
+    # possibilities - so flagging those as leaks trains people to ignore the audit.
+    SENSITIVE = {"person", "venue", "counterparty", "legal_entity", "system",
+                 "ledger_account", "org_unit", "account_number"}
+
     leaks: list[str] = []
+    coincidental: list[str] = []
     for sheet, df in _read(path).items():
         for col in df.columns:
             for value in df[col].dropna().unique():
-                if str(value).strip().casefold() in reals:
-                    leaks.append(f"{sheet}.{col}: {value}")
+                text = str(value).strip()
+                key = text.casefold()
+                if key not in reals:
+                    continue
+                cat = origin.get(key, "")
+                distinctive = (cat in SENSITIVE
+                               and not (text.isdigit() and len(text) <= 8)
+                               and len(text) >= 5)
+                (leaks if distinctive else coincidental).append(
+                    f"{sheet}.{col}: {text}  [{cat}]")
 
     if leaks:
-        print(f"LEAKED - {len(leaks)} real value(s) still present:")
+        print(f"LEAKED - {len(leaks)} distinctive real value(s) present:")
         for leak in leaks[:40]:
             print(f"  {leak}")
+        if coincidental:
+            print(f"\n(plus {len(coincidental)} low-risk matches: short codes or "
+                  "generic terms that collide by chance)")
         return 1
-    print(f"Clean: no mapped real values found in {path.name}.")
+
+    print(f"Clean: no distinctive real values found in {path.name}.")
+    if coincidental:
+        print(f"\n{len(coincidental)} low-risk match(es) - short numeric codes or "
+              "generic vocabulary, which collide by chance rather than disclose:")
+        for item in coincidental[:12]:
+            print(f"  {item}")
+        if len(coincidental) > 12:
+            print(f"  ... and {len(coincidental) - 12} more")
     return 0
 
 

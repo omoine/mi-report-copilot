@@ -3,8 +3,16 @@
 Run: .venv\\Scripts\\python.exe tests_smoke.py
 """
 
-import sys
 from pathlib import Path
+import os
+import sys
+
+# Pin the tests to the small fixed sample: the row-count assertions below
+# describe that file, and the app defaults to the generated month.
+os.environ.setdefault(
+    "DATA_FILE",
+    str(Path(__file__).parent / "data" / "synthetic_liquidity_views.xlsx"),
+)
 
 from app import data_access, md_export, pdf_export, report_builder
 

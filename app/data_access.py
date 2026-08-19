@@ -9,6 +9,7 @@ auditable and reproducible.
 from __future__ import annotations
 
 import datetime as dt
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,17 @@ from typing import Any
 import openpyxl
 import pandas as pd
 
-DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "synthetic_liquidity_views.xlsx"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+# The month-long generated set is preferred when present: it has the intraday
+# shape, cardinality and joinable keys the original single-day sample lacks.
+# Override with DATA_FILE to pin a specific workbook (the tests do this).
+_DEFAULT_DATA = DATA_DIR / "synthetic_liquidity_month.xlsx"
+_FALLBACK_DATA = DATA_DIR / "synthetic_liquidity_views.xlsx"
+DATA_FILE = Path(
+    os.getenv("DATA_FILE")
+    or (_DEFAULT_DATA if _DEFAULT_DATA.exists() else _FALLBACK_DATA)
+)
 
 # All three view sheets share the same layout: title row, two control rows,
 # two blank rows, then the header on row 6. The final row is a "Total" footer

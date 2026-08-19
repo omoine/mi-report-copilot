@@ -42,6 +42,20 @@ that produced it.
 
 ## The dataset
 
+The app loads `data/synthetic_liquidity_month.xlsx` when present: a generated
+month of business days across ~6,000 account/currency pairs, ~900 of them active,
+with an intraday arrival curve, month-end and day-of-week effects, and deliberate
+anomalies. Regenerate or resize it with:
+
+```bash
+python generate_synthetic.py --accounts 6000 --active 900 --days 22
+```
+
+Set `DATA_FILE` to pin a different workbook. The original single-day sample is
+kept as `data/synthetic_liquidity_views.xlsx` and is what the tests run against.
+
+### The original sample
+
 `data/synthetic_liquidity_views.xlsx` is entirely fabricated — all accounts,
 counterparties, entities, users and amounts. It models three views common to
 intraday liquidity operations:

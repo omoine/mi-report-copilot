@@ -1,5 +1,18 @@
 # What data would make this tool useful
 
+> **Status, 19 Aug 2026.** A generated month now stands in for most of what is
+> asked for below: `data/synthetic_liquidity_month.xlsx`, built by
+> `generate_synthetic.py` with distribution shape taken from an OCR profile of
+> production screenshots. It closes the intraday-profile gap, the cardinality
+> gap, the missing display-currency column and the missing join key, and it
+> carries deliberate anomalies.
+>
+> What it cannot do is make the shape *true*. The currency and status mixes are
+> real, but arrival curve, balance levels, break rates and concentration are
+> assumptions. **Priority 1 and Priority 2 below still stand** - one real
+> business day would let the generated month be calibrated rather than guessed,
+> and the Priority 2 concepts do not exist in any form yet.
+
 Written after rebuilding the query engine and measuring it against 23 realistic
 MI questions. The engine now answers 22 of them. The one it still cannot answer
 well fails for a data reason, not a code reason — and that failure is
