@@ -38,6 +38,16 @@ REPORT_BUILT = "report_built"
 
 VALID_CHART_TYPES = {"bar", "barh", "line", "table"}
 
+# The internal names are matplotlib's. Never show them to a reader.
+CHART_TYPE_LABELS = {
+    "bar": "a column chart",
+    "barh": "a horizontal bar chart",
+    "line": "a line chart over time",
+    "table": "a table",
+    "stat": "a single headline figure",
+    "distribution": "a distribution chart",
+}
+
 
 class OrchestratorError(RuntimeError):
     """A user-facing failure (bad request, infeasible query, model problem)."""
@@ -218,49 +228,78 @@ def _interpret_with_retry(
         return retried
 
 
+AGG_WORDS = {
+    "sum": "total", "mean": "average", "median": "median", "count": "number of",
+    "min": "lowest", "max": "highest", "std": "spread (standard deviation) of",
+    "var": "variance of",
+}
+OPERATOR_WORDS = {
+    "eq": "is", "ne": "is not", "gt": "is above", "gte": "is at least",
+    "lt": "is below", "lte": "is at most", "in": "is one of",
+    "not_in": "is not one of", "contains": "contains",
+    "is_null": "is blank", "not_null": "is not blank",
+}
+
+
 def _summarise_query(query: dict[str, Any], chart_type: str) -> str:
-    """Plain-English echo of the query, so the user can sanity-check it."""
-    view_name = data_access.VIEW_SHEETS[query["view"]]
+    """Plain-English echo of the query, so the user can sanity-check it.
+
+    Deliberately free of internal vocabulary: no matplotlib chart names, no
+    operator codes. The reader is checking whether the assistant understood
+    them, which they cannot do if the answer is written in jargon.
+    """
+    view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
     parts: list[str] = []
 
     if query.get("mode") == "distribution":
         measures = query.get("measures") or []
-        target = (measures[0].get("column") if measures else None) or "the measure"
-        parts.append(f"distribution of {target}")
-        parts.append(f"across the {view_name}")
+        target = (measures[0].get("column") if measures else None) or "the values"
+        parts.append(f"How {target} is distributed across {view_name} records")
         if query.get("group_by"):
-            parts.append("compared by " + ", ".join(query["group_by"]))
+            parts.append("compared by " + " and ".join(query["group_by"]))
     elif query.get("mode") == "list":
         cols = query.get("columns") or []
-        shown = ", ".join(cols[:5]) + ("..." if len(cols) > 5 else "")
-        parts.append(f"list of rows from the {view_name}")
-        if shown:
-            parts.append(f"showing {shown}")
+        parts.append(f"A list of {view_name} records")
+        if cols:
+            shown = ", ".join(cols[:5])
+            parts.append(f"showing {shown}"
+                         + (f" and {len(cols) - 5} more columns" if len(cols) > 5 else ""))
     else:
         measures = query.get("measures") or []
-        described = [
-            f"{(m.get('aggregation') or 'sum')} of {m.get('column') or 'rows'}"
-            for m in measures
-        ] or ["sum"]
-        parts.append(" and ".join(described))
-        parts.append(f"from the {view_name}")
+        described = []
+        for m in measures:
+            agg = AGG_WORDS.get((m.get("aggregation") or "sum").lower(),
+                                m.get("aggregation") or "sum")
+            described.append(f"{agg} {m.get('column')}" if m.get("column")
+                             else "number of records")
+        parts.append("The " + " and ".join(described or ["total"])
+                     + f" in {view_name}")
         if query.get("time_bucket"):
             tb = query["time_bucket"]
-            parts.append(f"bucketed by {tb.get('granularity', 'hour')} "
-                         f"on {tb.get('column')}")
+            parts.append(f"broken down by {tb.get('granularity', 'hour')}")
         if query.get("group_by"):
-            parts.append("grouped by " + ", ".join(query["group_by"]))
+            parts.append("split by " + " and ".join(query["group_by"]))
 
     if query.get("filters"):
-        parts.append("filtered where " + "; ".join(
-            f"{f.get('column')} {f.get('operator', 'eq')} {f.get('value')}"
-            for f in query["filters"]))
-    if query.get("sort_by"):
-        parts.append(f"sorted by {query['sort_by']}"
-                     + (" descending" if query.get("sort_desc", True) else " ascending"))
+        readable = []
+        for f in query["filters"]:
+            op = OPERATOR_WORDS.get((f.get("operator") or "eq").lower(), f.get("operator"))
+            value = f.get("value")
+            if op in ("is blank", "is not blank"):
+                readable.append(f"{f.get('column')} {op}")
+            else:
+                readable.append(f"{f.get('column')} {op} {value}")
+        parts.append("counting only where " + " and ".join(readable))
+    if query.get("add_share_of_total"):
+        parts.append("with each row's share of the total")
+    if query.get("add_cumulative"):
+        parts.append("with a running total")
+    if query.get("join"):
+        parts.append(f"combined with {query['join'].get('view', '')} data")
     if query.get("limit"):
-        parts.append(f"top {query['limit']}")
-    parts.append("shown as a table" if chart_type == "table" else f"shown as a {chart_type}")
+        parts.append(f"limited to the top {query['limit']}")
+
+    parts.append("presented as " + CHART_TYPE_LABELS.get(chart_type, "a chart"))
     return ", ".join(parts) + "."
 
 
