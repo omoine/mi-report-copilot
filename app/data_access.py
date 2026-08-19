@@ -950,6 +950,71 @@ def compute_peak(df: pd.DataFrame, view: str, measure: str, timestamp_col: str,
     return result.sort_values("Largest usage").reset_index(drop=True)
 
 
+def compute_backlog(df: pd.DataFrame, view: str, opened_col: str, closed_col: str,
+                    granularity: str, measure: str | None = None) -> pd.DataFrame:
+    """How a queue evolved: what was outstanding at each point in time.
+
+    A queue banded by age answers "how bad is it now". It cannot answer "how did
+    it get like this", which is the question a manager actually acts on - a
+    backlog that built steadily needs more people, one that spiked at 14:00
+    needs to know what happened at 14:00. Both look identical as a single bar.
+
+    An item is outstanding at time t if it arrived on or before t and had not
+    yet cleared. Items that never cleared are outstanding from arrival onwards.
+    """
+    _require_column(df, opened_col, "the queue arrival time", view)
+    _require_column(df, closed_col, "the queue clearance time", view)
+    if granularity not in TIME_GRANULARITIES:
+        raise QueryError(f"Unsupported interval '{granularity}'. "
+                         f"Use one of: {', '.join(TIME_GRANULARITIES)}.")
+
+    opened = pd.to_datetime(df[opened_col], errors="coerce")
+    closed = pd.to_datetime(df[closed_col], errors="coerce")
+    if opened.notna().sum() == 0:
+        raise QueryError(f"'{opened_col}' does not contain readable timestamps.")
+
+    valid = opened.notna()
+    opened, closed = opened[valid], closed[valid]
+    amounts = None
+    if measure and measure in df.columns:
+        amounts = pd.to_numeric(df.loc[valid, measure], errors="coerce").fillna(0).abs()
+
+    freq, fmt = TIME_GRANULARITIES[granularity]
+    start = opened.min().floor(freq if freq not in {"W", "MS"} else "D")
+    last_event = max(opened.max(), closed.max()) if closed.notna().any() else opened.max()
+    grid = pd.date_range(start, last_event.ceil(freq if freq not in {"W", "MS"} else "D"),
+                         freq=freq)
+    if len(grid) > 400:
+        raise QueryError(
+            f"That period at {granularity} intervals would produce {len(grid)} "
+            "points, which is not readable. Narrow to a single day, or use a "
+            "coarser interval such as hour."
+        )
+
+    rows = []
+    for point in grid:
+        arrived = opened <= point
+        cleared = closed.notna() & (closed <= point)
+        outstanding = arrived & ~cleared
+        row = {
+            f"{opened_col} ({granularity})": point.strftime(fmt),
+            "Arrived": int((opened.dt.floor(freq) == point).sum()),
+            "Cleared": int((closed.dt.floor(freq) == point).sum()) if closed.notna().any() else 0,
+            "Outstanding": int(outstanding.sum()),
+        }
+        if amounts is not None:
+            row["Outstanding value"] = round(float(amounts[outstanding].sum()), 3)
+        rows.append(row)
+
+    result = pd.DataFrame(rows)
+    # Leading and trailing stretches with nothing outstanding are not the queue,
+    # they are the hours around it.
+    active = result["Outstanding"] > 0
+    if active.any():
+        result = result.loc[active.idxmax():active[::-1].idxmax()].reset_index(drop=True)
+    return result
+
+
 def guard_currency(view: str, df: pd.DataFrame, measures: list[dict[str, str]],
                    group_by: list[str]) -> tuple[list[dict[str, str]], list[str]]:
     """Stop local-currency amounts being added together across currencies.
@@ -1154,6 +1219,7 @@ def run_query(
     join: dict[str, Any] | list[dict[str, Any]] | None = None,
     derived: list[dict[str, Any]] | None = None,
     rate: dict[str, Any] | None = None,
+    backlog: dict[str, Any] | None = None,
     add_share_of_total: bool = False,
     add_cumulative: bool = False,
     # Accepted for convenience; folded into `measures`.
@@ -1218,10 +1284,11 @@ def run_query(
     rows_after_filters = len(df)
 
     mode = (mode or "aggregate").lower()
-    if mode not in {"aggregate", "list", "distribution", "peak", "quality"}:
+    if mode not in {"aggregate", "list", "distribution", "peak", "quality",
+                    "backlog"}:
         raise QueryError(
             f"Unsupported mode '{mode}'. Use 'aggregate', 'list', "
-            "'distribution', 'peak' or 'quality'."
+            "'distribution', 'peak', 'quality' or 'backlog'."
         )
 
     # Fold the single-measure convenience form into the list form.
@@ -1237,7 +1304,26 @@ def run_query(
 
     raw_values: pd.DataFrame | None = None
 
-    if mode == "quality":
+    if mode == "backlog":
+        spec = backlog or {}
+        opened_col = spec.get("opened_at") or TIMESTAMP_COLUMN.get(view)
+        closed_col = spec.get("closed_at")
+        if not closed_col:
+            raise QueryError(
+                "A backlog needs both the time an item arrived and the time it "
+                "cleared. Give 'opened_at' and 'closed_at'."
+            )
+        resolved_measures = _normalise_measures(measures, view, df)
+        measure_col = resolved_measures[0]["column"] if resolved_measures else None
+        result = compute_backlog(
+            df, view, opened_col, closed_col,
+            str(spec.get("granularity") or "15min").lower(), measure_col)
+        label_columns = [result.columns[0]]
+        measure_columns = [c for c in result.columns if c != result.columns[0]]
+        resolved_measures = [{"column": measure_col or "", "aggregation": "backlog",
+                              "label": "Outstanding"}]
+
+    elif mode == "quality":
         result = profile_completeness(view, df, columns)
         label_columns = ["Column"]
         measure_columns = [c for c in result.columns if c != "Column"]

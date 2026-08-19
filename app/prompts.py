@@ -26,7 +26,7 @@ Return a JSON object with exactly these keys:
   "understood": "<one or two sentences restating, in business language, the view you will build>",
   "query": {
     "view": "<one of: nostro_transfer | client | business_ledger>",
-    "mode": "<aggregate | list | distribution | peak | quality>",
+    "mode": "<aggregate | list | distribution | peak | quality | backlog>",
     "filters": [{"column": "<exact column name>", "operator": "<eq|ne|gt|gte|lt|lte|in|not_in|contains|is_null|not_null>", "value": <string, number or list>},
                 {"any": [ {...}, {...} ]}],
 
@@ -48,6 +48,7 @@ Return a JSON object with exactly these keys:
                 {"name": "<name>", "duration_from": "<timestamp>", "duration_to": "<timestamp>", "unit": "<minutes|hours|days>"},
                 {"part_of": "<timestamp column>", "part": "<hour_of_day|weekday|day_of_month|week_of_year|month>"}],
     "rate": {"name": "<e.g. Failure rate %>", "where": { ...a filter or an any-group... }},
+    "backlog": {"opened_at": "<timestamp an item joined the queue>", "closed_at": "<timestamp it left>", "granularity": "<15min|30min|hour>"},
     "join": {"view": "<other view or reference table>", "on": {"left": "<key here>"}, "bring": ["<columns to pull in>"]},
     // or a LIST of joins, to reach an attribute two hops away:
     // [{"view":"counterparty_master","on":{"left":"Counterparty"},"bring":["Country of Incorporation"]},
@@ -64,7 +65,20 @@ Return a JSON object with exactly these keys:
   "feasible": true
 }
 
-CHOOSING THE MODE - this matters more than anything else:
+CHOOSING THE MODE - this matters more than anything else.
+
+Check these two first, because they are the ones most often missed:
+
+  * The words QUEUE, BACKLOG, OUTSTANDING or PENDING together with any
+    expression of time - "over the day", "through the morning", "how it
+    evolved", "in 15 minute intervals", "by hour" - mean mode "backlog".
+    "How did the approval queue evolve" is mode "backlog", never a total.
+  * PEAK, MAXIMUM USAGE or INTRADAY POSITION mean mode "peak", never a sum.
+
+A single total in answer to either of those is the wrong answer to the
+question, however correct the arithmetic.
+
+The full list:
 
 - "list" when the user wants to SEE RECORDS: "which/what/show me/list/find the
   transfers that...", "the ten largest...", "accounts where...". Return the
@@ -82,6 +96,19 @@ CHOOSING THE MODE - this matters more than anything else:
   Do NOT answer these with a plain sum: a total tells you the volume that moved,
   not the position that had to be funded, and a running total that never resets
   describes a month-long accumulation rather than an intraday position.
+
+- "backlog" when the user asks how a QUEUE BEHAVED OVER TIME: "how has the
+  queue evolved", "how did the backlog build", "outstanding over the day",
+  "queue depth", "was it clearing or growing", "in 15 minute intervals".
+  Give "backlog" the timestamp an item joined the queue, the timestamp it left,
+  and an interval. It returns, for each interval, how many arrived, how many
+  cleared, how many were still outstanding and their value.
+  Prefer this over age bands whenever the question is about change over time.
+  An age band says how bad the queue is now; it cannot distinguish a backlog
+  that built steadily from one that spiked in a single afternoon, and those need
+  different responses. Use chart_type "line".
+  A backlog over more than a day or two should use "hour", not "15min", or the
+  chart becomes unreadable.
 
 - "quality" when the user asks about the DATA ITSELF: "how complete", "how many
   are missing", "data quality", "populated", "blank", "are we capturing".
@@ -376,6 +403,13 @@ WORKED EXAMPLES - match the shape of these.
   measures: [{"aggregation":"count"},
              {"column":"Value Amount (Display)","aggregation":"sum"}],
   chart_type: "bar"
+
+"How has the approval queue evolved through the day, in 15 minute steps?"
+  mode: "backlog", view: "nostro_transfer",
+  filters: [{"column":"Value Date","operator":"eq","value":"<the day>"}],
+  backlog: {"opened_at":"Created Time","closed_at":"Approved Time",
+            "granularity":"15min"},
+  measures: [{"column":"Value Amount (Display)"}], chart_type: "line"
 
 "How long does approval take, by desk?"
   mode: "aggregate", view: "nostro_transfer",

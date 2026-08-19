@@ -121,7 +121,8 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
         return [v for v in (value or []) if v]
 
     mode = (query.get("mode") or "aggregate").lower()
-    if mode not in {"aggregate", "list", "distribution", "peak", "quality"}:
+    if mode not in {"aggregate", "list", "distribution", "peak", "quality",
+                    "backlog"}:
         mode = "aggregate"
 
     measures = query.get("measures") or []
@@ -173,6 +174,7 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
             "join": query.get("join") or None,
             "derived": query.get("derived") or [],
             "rate": query.get("rate") or None,
+            "backlog": query.get("backlog") or None,
             "add_share_of_total": bool(query.get("add_share_of_total", False)),
             "add_cumulative": bool(query.get("add_cumulative", False)),
         },
@@ -293,7 +295,12 @@ def _summarise_query(query: dict[str, Any], chart_type: str) -> str:
     view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
     parts: list[str] = []
 
-    if query.get("mode") == "quality":
+    if query.get("mode") == "backlog":
+        spec = query.get("backlog") or {}
+        parts.append(f"How many {view_name} items were outstanding at each "
+                     f"{spec.get('granularity', '15min')} through the period, "
+                     "with arrivals and clearances")
+    elif query.get("mode") == "quality":
         parts.append(f"How completely each column of {view_name} is populated, "
                      "least complete first")
     elif query.get("mode") == "peak":
@@ -424,6 +431,11 @@ def _render_for(result: dict[str, Any], interp: dict[str, Any], title: str,
 def _title_for(interp: dict[str, Any]) -> str:
     query = interp["query"]
     view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
+
+    if query.get("mode") == "backlog":
+        spec = query.get("backlog") or {}
+        return (f"Queue outstanding over time, every "
+                f"{spec.get('granularity', '15min')}")
 
     if query.get("mode") == "quality":
         return f"Data completeness - {view_name}"

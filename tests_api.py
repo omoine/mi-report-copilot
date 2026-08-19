@@ -321,6 +321,20 @@ positioned = set(re.findall(r"^\.([a-z-]+)\s*\{[^}]*position:\s*fixed", css,
 check("nothing the conversation applies is position:fixed",
       "assistant" not in positioned, str(sorted(positioned)))
 
+# Setting the hidden property does nothing if a class also sets display: the
+# user-agent's [hidden]{display:none} loses to any rule here. The panel stayed
+# on screen after "closing" for exactly this reason, and a test that checked
+# the property rather than the rendering reported it as working.
+hidden_toggled = set(re.findall(r"(\w[\w-]*)\.hidden\s*=", assistant_js))
+for element in hidden_toggled:
+    cls = f"assistant-{element}"
+    sets_display = re.search(rf"^\.{cls}\s*\{{[^}}]*display:", css, re.MULTILINE | re.DOTALL)
+    has_guard = f".{cls}[hidden]" in css
+    check(f"hiding .{cls} actually hides it",
+          not sets_display or has_guard,
+          "a class display rule outranks the hidden attribute; "
+          f"add .{cls}[hidden] {{ display: none; }}")
+
 print("\n7. Guard rails")
 r = client.post("/api/export", json={"session_id": "nonexistent-session"})
 check("export without report is rejected", r.status_code == 400, r.json().get("detail", "")[:50])

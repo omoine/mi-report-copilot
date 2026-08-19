@@ -520,6 +520,11 @@ tbody tr:hover td { background: rgba(161, 0, 255, .07); color: var(--text); }
 @keyframes assistantPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .assistant-bubble-dot { animation: none; } }
 
+/* The hidden attribute only sets display:none from the user-agent stylesheet,
+   which any explicit display rule here outranks. Without this the panel stays
+   on screen after being "closed": the property flips, nothing moves. */
+.assistant-panel[hidden] { display: none; }
+
 .assistant-panel {
   width: 370px; max-width: calc(100vw - 32px);
   height: 460px; max-height: calc(100vh - 130px);

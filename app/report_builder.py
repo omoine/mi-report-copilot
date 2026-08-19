@@ -206,11 +206,10 @@ def build_chart(
     # A time series must never be folded into an "Other" bucket - the x axis is
     # chronological, so the tail is "later", not "smaller".
     if chart_type == "line":
-        if len(plot_df) > 40:
+        if len(plot_df) > 60:
             notes.append(
-                f"{len(plot_df)} time buckets are plotted, which is dense to read. "
-                "A coarser granularity (day rather than hour) would show the shape "
-                "more clearly."
+                f"{len(plot_df)} time points are plotted. The shape is readable, but "
+                "a coarser interval would make individual points easier to pick out."
             )
     else:
         plot_df, folded = _fold_tail(plot_df, label_col, measures)
@@ -220,7 +219,8 @@ def build_chart(
                 "are combined into a single 'Other' bar. The full breakdown is in the table."
             )
 
-    # More than one measure is a comparison: grouped bars with a legend.
+    # More than one measure is a comparison. Over time that is lines: ninety-nine
+    # intervals of grouped bars is a picket fence, not a trend.
     if len(measures) > 1:
         if len(measures) > len(t["series_set"]):
             kept = len(t["series_set"])
@@ -229,8 +229,11 @@ def build_chart(
                 "colours that cannot be told apart reliably. The table shows all of them."
             )
             measures = measures[:kept]
-        fig = _render_grouped(plot_df, label_col, measures, title, t,
-                              horizontal=(chart_type == "barh"))
+        if chart_type == "line":
+            fig = _render_multi_line(plot_df, label_col, measures, title, t)
+        else:
+            fig = _render_grouped(plot_df, label_col, measures, title, t,
+                                  horizontal=(chart_type == "barh"))
     elif chart_type == "line":
         fig = _render_line(plot_df, label_col, value_col, title, t)
     elif chart_type == "barh":
@@ -460,6 +463,63 @@ def _magnitude_spread(groups: list) -> float:
     if len(medians) < 2:
         return 1.0
     return max(medians) / min(medians)
+
+
+def _thin_time_labels(ax, labels: pd.Series, target: int = 10) -> None:
+    """Show about ten ticks, and drop the date when every point shares one.
+
+    A 15-minute series over a day is ninety-nine points; stamping a full
+    datetime on each renders the axis as a smear.
+    """
+    text = labels.astype(str)
+    dates = {value.split(" ")[0] for value in text if " " in value}
+    shown = text.str.split(" ").str[-1] if len(dates) == 1 else text
+
+    step = max(1, len(text) // target)
+    positions = list(range(0, len(text), step))
+    ax.set_xticks(positions)
+    ax.set_xticklabels(shown.iloc[positions], rotation=0 if len(dates) == 1 else 30,
+                       ha="center" if len(dates) == 1 else "right")
+
+
+def _render_multi_line(df, label_col: str, measures: list[str], title: str,
+                       t: dict[str, Any]):
+    """Several measures over time. Identity comes from the legend, not colour
+    alone, and the axis is thinned so the labels stay readable."""
+    fig, ax = plt.subplots(figsize=(9, 4.8), dpi=200)
+    fig.patch.set_facecolor(t["surface"])
+
+    positions = range(len(df))
+    dense = len(df) > 40
+    for i, measure in enumerate(measures):
+        ax.plot(positions, df[measure], color=t["series_set"][i], linewidth=2.0,
+                marker="" if dense else "o", markersize=4,
+                markerfacecolor=t["series_set"][i],
+                markeredgecolor=t["surface"], markeredgewidth=1.5,
+                label=measure)
+
+    _style_axes(ax, t, horizontal=False)
+    ax.set_title(title, fontsize=12, color=t["ink_primary"], loc="left", pad=12)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: _human_number(v)))
+    _thin_time_labels(ax, df[label_col])
+
+    legend = ax.legend(frameon=False, fontsize=9, loc="upper left",
+                       ncol=min(len(measures), 3))
+    for text in legend.get_texts():
+        text.set_color(t["ink_secondary"])
+
+    # Mark the peak of the series that actually carries the story - the largest
+    # one. On a queue that is Outstanding, not the arrivals feeding it.
+    leading = max(measures, key=lambda m: df[m].max() if df[m].notna().any() else 0)
+    primary = df[leading]
+    if len(primary) > 2 and primary.notna().any():
+        top = int(primary.idxmax())
+        ax.annotate(f"peak {_human_number(primary.iloc[top])}",
+                    (top, primary.iloc[top]), textcoords="offset points",
+                    xytext=(0, 11), ha="center", fontsize=8.5,
+                    color=t["ink_secondary"])
+    fig.tight_layout()
+    return fig
 
 
 def _render_grouped(df, label_col: str, measures: list[str], title: str,

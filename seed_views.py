@@ -53,9 +53,14 @@ VIEWS: list[tuple[str, str, str]] = [
      "credits, so I can see when money arrives versus when it leaves."),
 
     ("Approval queue by ageing",
-     "Value awaiting approval, banded by how long it has been waiting.",
+     "Value awaiting approval, banded by how long it has been waiting. A snapshot of how bad the queue is now.",
      "What is sitting in the approval queue, and how long has it been waiting? "
      "I want to see the value at risk in each ageing band."),
+
+    ("Approval queue through the day",
+     "How the queue built and drained, every 15 minutes: arrivals, clearances and what was still outstanding. The ageing view says how bad it is; this says how it got that way.",
+     "Show how the approval queue evolved through 18 August in 15 minute "
+     "intervals - what arrived, what cleared and what was still outstanding."),
 
     ("Daily flow trend",
      "Daily transfer value across the period against the period average, with "
