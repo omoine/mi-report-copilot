@@ -155,13 +155,116 @@ function renderReport(data) {
 
   html += `<div style="margin-top:18px">
       <div class="section-label">Fine-tune this report</div>
-      <textarea id="refineInput" placeholder="e.g. show only JPY and USD, or switch to a horizontal bar chart"></textarea>
+      <textarea id="refineInput" placeholder="e.g. show only JPY and USD, or add share of total"></textarea>
       <div class="btn-row">
         <button class="flow-btn" onclick="refine()">Apply change</button>
-        <button class="flow-btn secondary" onclick="exportReport()">Export PDF + Markdown</button>
+        <button class="flow-btn secondary" onclick="exportReport()">Export</button>
+      </div>
+      <div class="section-label" style="margin-top:16px">Save this view</div>
+      <div class="save-row">
+        <input id="saveName" type="text" placeholder="Name it, e.g. Daily reconciliation breaks"
+               maxlength="80" autocomplete="off">
+        <button class="flow-btn secondary" onclick="saveView()">Save</button>
       </div>
     </div>`;
   addBlock(html);
+}
+
+/* ---------- saved views ---------- */
+
+async function saveView(overwrite = false) {
+  if (busy) return;
+  const input = document.getElementById('saveName');
+  const name = input?.value.trim();
+  if (!name) { input?.focus(); return; }
+
+  setBusy(true, 'Saving...');
+  try {
+    const data = await api('/api/views/save', {
+      session_id: sessionId, name, overwrite,
+    });
+    addBlock(`<div class="who">Saved</div>${escapeHtml(data.message)}
+      It is now in the saved views list, top left.`);
+    if (input) input.value = '';
+    await loadViewList();
+  } catch (err) {
+    // A name clash is a question, not a failure - offer to replace.
+    if (/already exists/i.test(err.message)) {
+      addBlock(`<div class="who">Name already used</div>
+        ${escapeHtml(err.message)}
+        <div class="btn-row">
+          <button class="flow-btn" onclick="saveView(true)">Replace it</button>
+        </div>`);
+    } else {
+      addBlock(`<div class="who">Could not save</div>${escapeHtml(err.message)}`, 'error');
+    }
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function loadViewList() {
+  const search = document.getElementById('viewSearch')?.value.trim() || '';
+  const listEl = document.getElementById('viewList');
+  if (!listEl) return;
+  try {
+    const url = '/api/views' + (search ? `?search=${encodeURIComponent(search)}` : '');
+    const res = await fetch(url);
+    const data = await res.json();
+    const views = data.views || [];
+
+    if (!views.length) {
+      listEl.innerHTML = `<div class="view-empty">${
+        search ? 'No saved view matches that.'
+               : 'No saved views yet. Build one, then name and save it.'}</div>`;
+      return;
+    }
+    listEl.innerHTML = views.map((v) => `
+      <div class="view-item" role="option" tabindex="0"
+           onclick="openView('${v.id}')"
+           onkeydown="if(event.key==='Enter')openView('${v.id}')">
+        <div class="view-item-main">
+          <div class="view-item-name">${escapeHtml(v.name)}</div>
+          <div class="view-item-meta">${escapeHtml(v.view || '')} &middot; ${
+            escapeHtml((v.saved_at || '').slice(0, 10))}</div>
+        </div>
+        <button class="view-item-del" title="Delete this saved view"
+                onclick="event.stopPropagation();deleteView('${v.id}','${
+                  escapeHtml(v.name).replace(/'/g, "\\'")}')">&times;</button>
+      </div>`).join('');
+  } catch {
+    listEl.innerHTML = '<div class="view-empty">Could not load saved views.</div>';
+  }
+}
+
+async function openView(viewId) {
+  if (busy) return;
+  const working = addBlock('<span class="spinner"></span>Loading saved view and refreshing against current data&hellip;');
+  setBusy(true, 'Loading...');
+  try {
+    const data = await api('/api/views/load', { session_id: sessionId, view_id: viewId });
+    sessionId = data.session_id;
+    working.remove();
+    if (data.loaded_view) {
+      addBlock(`<div class="who">Saved view</div>
+        Re-ran <strong>${escapeHtml(data.loaded_view.name)}</strong> against the current data.`);
+    }
+    renderReport(data);
+  } catch (err) {
+    working.remove();
+    addBlock(`<div class="who">Could not load that view</div>${escapeHtml(err.message)}`, 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function deleteView(viewId, name) {
+  if (busy) return;
+  const res = await fetch(`/api/views/${encodeURIComponent(viewId)}`, { method: 'DELETE' });
+  if (res.ok) {
+    addBlock(`<div class="who">Deleted</div>Removed the saved view <strong>${escapeHtml(name)}</strong>.`);
+    await loadViewList();
+  }
 }
 
 /* ---------- step 3: refine ---------- */
@@ -196,11 +299,16 @@ async function exportReport() {
   try {
     const data = await api('/api/export', { session_id: sessionId });
     working.remove();
+    const link = (file, label, alt) => file
+      ? `<a ${alt ? 'class="alt" ' : ''}href="/api/download/${encodeURIComponent(file)}" download>${label}</a>`
+      : '';
     addBlock(`<div class="who">Export complete</div>
       <p>${escapeHtml(data.message)}</p>
       <div class="downloads">
-        <a href="/api/download/${encodeURIComponent(data.pdf)}" download>Download PDF report</a>
-        <a class="alt" href="/api/download/${encodeURIComponent(data.markdown)}" download>Download Markdown documentation</a>
+        ${link(data.pdf, 'PDF report')}
+        ${link(data.excel, 'Excel (data + editable chart)', true)}
+        ${link(data.svg, 'Chart as SVG', true)}
+        ${link(data.markdown, 'Markdown documentation', true)}
       </div>`);
   } catch (err) {
     working.remove();
@@ -232,6 +340,16 @@ queryInput.addEventListener('keydown', (e) => {
 document.querySelectorAll('.ex').forEach((b) => {
   b.addEventListener('click', () => { queryInput.value = b.textContent; ask(); });
 });
+
+const viewSearch = document.getElementById('viewSearch');
+if (viewSearch) {
+  let debounce;
+  viewSearch.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(loadViewList, 180);
+  });
+}
+loadViewList();
 
 fetch('/api/health').then((r) => r.json()).then((h) => {
   const views = Object.entries(h.views)

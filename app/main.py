@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import data_access, llm_client, orchestrator
+from . import data_access, llm_client, orchestrator, saved_views
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -125,6 +125,66 @@ def reset(req: SessionRequest) -> dict:
     return {"session_id": session.id, "state": session.state}
 
 
+# --------------------------------------------------------------------------
+# Saved views
+# --------------------------------------------------------------------------
+
+class SaveViewRequest(BaseModel):
+    session_id: str
+    name: str
+    description: str = ""
+    overwrite: bool = False
+
+
+class LoadViewRequest(BaseModel):
+    session_id: str | None = None
+    view_id: str
+
+
+@app.get("/api/views")
+def list_views(search: str | None = None) -> dict:
+    return {"views": saved_views.list_views(search)}
+
+
+@app.post("/api/views/save")
+def save_view(req: SaveViewRequest) -> dict:
+    session = orchestrator.get_session(req.session_id)
+    try:
+        return orchestrator.save_current(session, req.name, req.description, req.overwrite)
+    except (orchestrator.OrchestratorError, saved_views.SavedViewError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/views/load")
+def load_view(req: LoadViewRequest) -> dict:
+    session = orchestrator.get_session(req.session_id)
+    try:
+        result = orchestrator.load_saved(session, req.view_id, get_provider())
+    except (orchestrator.OrchestratorError, saved_views.SavedViewError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except llm_client.LLMError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"session_id": session.id, **result}
+
+
+@app.delete("/api/views/{view_id}")
+def delete_view(view_id: str) -> dict:
+    try:
+        saved_views.delete_view(view_id)
+    except saved_views.SavedViewError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"deleted": view_id}
+
+
+MEDIA_TYPES = {
+    ".pdf": "application/pdf",
+    ".md": "text/markdown",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+}
+
+
 def _safe_export_path(filename: str) -> Path:
     """Resolve a filename inside the export directory, rejecting traversal."""
     export_dir = orchestrator.EXPORT_DIR.resolve()
@@ -142,7 +202,7 @@ def chart(filename: str) -> FileResponse:
 @app.get("/api/download/{filename}")
 def download(filename: str) -> FileResponse:
     path = _safe_export_path(filename)
-    media = "application/pdf" if path.suffix == ".pdf" else "text/markdown"
+    media = MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
     return FileResponse(path, media_type=media, filename=path.name)
 
 

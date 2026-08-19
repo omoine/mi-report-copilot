@@ -342,6 +342,107 @@ TIME_GRANULARITIES = {
 }
 
 
+def apply_join(df: pd.DataFrame, spec: dict[str, Any], base_view: str) -> tuple[pd.DataFrame, dict]:
+    """Look up columns from another view - vlookup semantics.
+
+    A join that matches nothing must say so. Returning an empty frame would read
+    as a genuine finding of "no records", when the truth is that the two key
+    columns hold different populations entirely.
+    """
+    right_view = spec.get("view")
+    if right_view not in VIEW_SHEETS:
+        raise QueryError(
+            f"Cannot combine with '{right_view}'. Available views: {', '.join(VIEW_SHEETS)}."
+        )
+    on = spec.get("on") or {}
+    left_key, right_key = on.get("left"), on.get("right") or on.get("left")
+    if not left_key or not right_key:
+        raise QueryError("A combine needs a key column on each side.")
+
+    _require_column(df, left_key, "a join key", base_view)
+    right = get_frame(right_view)
+    if right_key not in right.columns:
+        raise QueryError(
+            f"Column '{right_key}' does not exist in {VIEW_SHEETS[right_view]}. "
+            f"Available: {', '.join(right.columns)}."
+        )
+
+    bring = [c for c in (spec.get("bring") or []) if c]
+    for col in bring:
+        if col not in right.columns:
+            raise QueryError(
+                f"Cannot bring '{col}' from {VIEW_SHEETS[right_view]}. "
+                f"Available: {', '.join(right.columns)}."
+            )
+    if not bring:
+        bring = [c for c in right.columns if c != right_key][:4]
+
+    left_keys = df[left_key].astype(str).str.strip()
+    # vlookup takes the first match, so collapse duplicates rather than
+    # multiplying rows.
+    right_slim = right[[right_key] + bring].copy()
+    right_slim[right_key] = right_slim[right_key].astype(str).str.strip()
+    right_slim = right_slim.drop_duplicates(subset=[right_key], keep="first")
+
+    overlap = set(left_keys) & set(right_slim[right_key])
+    if not overlap:
+        raise QueryError(
+            f"'{left_key}' in {VIEW_SHEETS[base_view]} and '{right_key}' in "
+            f"{VIEW_SHEETS[right_view]} have no values in common, so they cannot "
+            f"be combined. Examples: {sorted(set(left_keys))[:2]} against "
+            f"{sorted(set(right_slim[right_key]))[:2]}. These views do not share "
+            "a key in this dataset."
+        )
+
+    # Prefix collisions so an existing column is never silently overwritten.
+    renames = {c: (f"{c} ({right_view})" if c in df.columns else c) for c in bring}
+    right_slim = right_slim.rename(columns=renames)
+
+    merged = df.assign(__key__=left_keys).merge(
+        right_slim.rename(columns={right_key: "__key__"}), on="__key__", how="left"
+    ).drop(columns="__key__")
+
+    brought = list(renames.values())
+    matched = int(merged[brought[0]].notna().sum()) if brought else 0
+    return merged, {
+        "view": right_view,
+        "on": f"{left_key} = {right_key}",
+        "brought": brought,
+        "rows_matched": matched,
+        "rows_unmatched": len(merged) - matched,
+    }
+
+
+def apply_derived(df: pd.DataFrame, specs: list[dict[str, Any]], view: str) -> tuple[pd.DataFrame, list[str]]:
+    """Add calculated columns from arithmetic between two columns, or a column
+    and a constant."""
+    added: list[str] = []
+    ops = {
+        "+": lambda a, b: a + b, "-": lambda a, b: a - b,
+        "*": lambda a, b: a * b, "/": lambda a, b: a / b.replace(0, pd.NA),
+    }
+    for spec in specs or []:
+        name = spec.get("name") or "Derived"
+        op = spec.get("op")
+        if op not in ops:
+            raise QueryError(f"Unsupported operator '{op}'. Use one of: {', '.join(ops)}.")
+        left, right = spec.get("left"), spec.get("right")
+        _require_column(df, left, "a calculation input", view)
+        df = _as_numeric(df, left)
+        left_series = df[left]
+
+        if isinstance(right, (int, float)):
+            right_series = pd.Series([float(right)] * len(df), index=df.index)
+        else:
+            _require_column(df, right, "a calculation input", view)
+            df = _as_numeric(df, right)
+            right_series = df[right]
+
+        df = df.assign(**{name: ops[op](left_series, right_series)})
+        added.append(name)
+    return df, added
+
+
 def _require_column(df: pd.DataFrame, col: str, role: str, view: str) -> None:
     if col not in df.columns:
         raise QueryError(
@@ -428,6 +529,10 @@ def run_query(
     sort_by: str | None = None,
     sort_desc: bool = True,
     limit: int | None = None,
+    join: dict[str, Any] | None = None,
+    derived: list[dict[str, Any]] | None = None,
+    add_share_of_total: bool = False,
+    add_cumulative: bool = False,
     # Accepted for convenience; folded into `measures`.
     measure: str | None = None,
     aggregation: str | None = None,
@@ -440,6 +545,16 @@ def run_query(
     """
     df = get_frame(view)
     total_rows = len(df)
+
+    # Order matters: bring in looked-up columns first, then calculate from them,
+    # so both are available to filter on.
+    join_info: dict[str, Any] | None = None
+    if join:
+        df, join_info = apply_join(df, join, view)
+
+    derived_columns: list[str] = []
+    if derived:
+        df, derived_columns = apply_derived(df, derived, view)
 
     filters = filters or []
     for spec in filters:
@@ -584,6 +699,20 @@ def run_query(
                 measures_note = f"split by {group_by[1]}"
             else:
                 measures_note = None
+
+            # Share of total and running total are the two derived views asked
+            # for most often, and both are wrong if computed by hand later.
+            primary_measure = measure_columns[0] if measure_columns else None
+            if add_share_of_total and primary_measure:
+                total = result[primary_measure].sum()
+                if total:
+                    share_name = f"% of total {primary_measure}"
+                    result[share_name] = (result[primary_measure] / total * 100).round(2)
+                    measure_columns.append(share_name)
+            if add_cumulative and primary_measure:
+                cum_name = f"Cumulative {primary_measure}"
+                result[cum_name] = result[primary_measure].cumsum()
+                measure_columns.append(cum_name)
         else:
             row = {}
             for m in resolved_measures:
@@ -620,6 +749,8 @@ def run_query(
             "columns": label_columns if mode == "list" else [],
             "sort_by": sort_by,
             "limit": limit,
+            "join": join_info,
+            "derived": derived_columns,
             # Kept for existing readers of the provenance block.
             "measure": primary["column"] if primary else None,
             "aggregation": primary["aggregation"] if primary else None,

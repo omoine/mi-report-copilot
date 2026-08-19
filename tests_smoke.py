@@ -191,6 +191,73 @@ pct = data_access.run_query("business_ledger", group_by=["Cashflow Type"],
 check("percentile aggregations work", len(pct["table"].columns) >= 2,
       str(list(pct["table"].columns)))
 
+print("\n5f. Analysis functions")
+der = data_access.run_query(
+    "client", mode="list",
+    derived=[{"name": "Net movement", "left": "Credits (Local)",
+              "op": "+", "right": "Debits (Local)"}],
+    columns=["Account", "Credits (Local)", "Debits (Local)", "Net movement"])
+check("derived column added", "Net movement" in der["table"].columns,
+      str(list(der["table"].columns)))
+check("derived column recorded in provenance",
+      "Net movement" in der["provenance"]["derived"])
+
+# A derived column must be usable as a filter, which means it is computed first.
+der_f = data_access.run_query(
+    "client", mode="list",
+    derived=[{"name": "Variance", "left": "Calculated Balance (Local)",
+              "op": "-", "right": "EOD Balance (Local)"}],
+    filters=[{"column": "Variance", "operator": "ne", "value": 0}],
+    columns=["Account", "Variance"])
+check("derived column is filterable", len(der_f["table"]) < 24,
+      f"{len(der_f['table'])} rows with a non-zero variance")
+
+share = data_access.run_query("business_ledger", group_by=["Cashflow Type"],
+                              measures=[{"column": "Amount (Display)"}],
+                              add_share_of_total=True)
+share_col = [c for c in share["table"].columns if c.startswith("% of total")]
+check("share of total added", bool(share_col), str(share_col))
+if share_col:
+    check("shares are a percentage", abs(share["table"][share_col[0]].sum()) > 0,
+          f"sums to {share['table'][share_col[0]].sum():.1f}")
+
+cum = data_access.run_query(
+    "business_ledger",
+    time_bucket={"column": "Transaction Timestamp", "granularity": "hour"},
+    measures=[{"column": "Amount (Display)"}],
+    sort_by="Transaction Timestamp (hour)", sort_desc=False,
+    add_cumulative=True)
+cum_col = [c for c in cum["table"].columns if c.startswith("Cumulative")]
+check("cumulative column added", bool(cum_col), str(cum_col))
+if cum_col:
+    vals = cum["table"][cum_col[0]].tolist()
+    check("cumulative is a running total",
+          abs(vals[-1] - cum["table"]["Amount (Display)"].sum()) < 0.01,
+          f"ends at {vals[-1]:,.0f}")
+
+print("\n5g. Combine / vlookup")
+try:
+    data_access.run_query("business_ledger", mode="list",
+                          join={"view": "client", "on": {"left": "Account", "right": "Account"},
+                                "bring": ["Legal Entity"]},
+                          columns=["Account", "Legal Entity"])
+    check("mismatched keys raise rather than return empty", False, "no error raised")
+except data_access.QueryError as exc:
+    check("mismatched keys raise rather than return empty",
+          "no values in common" in str(exc), str(exc)[:80])
+
+# A join on keys that DO overlap must work - prove it with a self-join.
+self_join = data_access.run_query(
+    "client", mode="list",
+    join={"view": "client", "on": {"left": "Account", "right": "Account"},
+          "bring": ["Legal Entity"]},
+    columns=["Account"], limit=5)
+check("join works when keys overlap", len(self_join["table"]) == 5,
+      f"{len(self_join['table'])} rows")
+check("join reported in provenance",
+      self_join["provenance"]["join"]["rows_matched"] > 0,
+      str(self_join["provenance"]["join"]))
+
 print("\n6. Error handling")
 for label, kwargs in [
     ("unknown view", {"view": "nope"}),

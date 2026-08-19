@@ -217,6 +217,70 @@ button.secondary:hover:not(:disabled) {
 }
 .examples button.ex:active:not(:disabled) { transform: scale(.985); }
 
+/* ── saved views ──────────────────────────────────────────────── */
+.saved-picker input[type="search"] {
+  width: 100%; padding: 9px 13px;
+  border: 1px solid var(--border); border-radius: 20px;
+  background: rgba(0, 0, 0, .28); color: var(--text);
+  font: inherit; font-size: 12px;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.saved-picker input[type="search"]::placeholder { color: var(--text-faint); }
+.saved-picker input[type="search"]:focus {
+  outline: none; border-color: rgba(161, 0, 255, .55);
+  box-shadow: 0 0 0 3px rgba(161, 0, 255, .14);
+}
+
+.view-list { margin-top: 9px; max-height: 220px; overflow-y: auto; }
+.view-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 11px; margin-bottom: 5px;
+  border: 1px solid var(--border); border-radius: 11px;
+  background: var(--surface-raised);
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease;
+}
+.view-item:hover { background: rgba(161, 0, 255, .16); border-color: rgba(161, 0, 255, .42); }
+.view-item-main { flex: 1; min-width: 0; }
+.view-item-name {
+  font-size: 12.5px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.view-item-meta {
+  font-family: var(--font-mono); font-size: 8.5px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-faint); margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.view-item-del {
+  flex-shrink: 0; width: 22px; height: 22px; padding: 0;
+  border-radius: 6px; background: transparent; border: 1px solid transparent;
+  color: var(--text-faint); font-size: 14px; line-height: 1;
+}
+.view-item-del:hover:not(:disabled) {
+  background: rgba(255, 107, 107, .16); color: #FFB4B4;
+  border-color: rgba(255, 107, 107, .3);
+  transform: none; box-shadow: none; filter: none;
+}
+.view-empty {
+  font-size: 11.5px; color: var(--text-faint);
+  padding: 10px 2px; line-height: 1.6;
+}
+
+.save-row { display: flex; gap: 7px; margin-top: 12px; }
+.save-row input {
+  flex: 1; min-width: 0; padding: 9px 13px;
+  border: 1px solid var(--border); border-radius: 11px;
+  background: rgba(0, 0, 0, .28); color: var(--text);
+  font: inherit; font-size: 12.5px;
+}
+.save-row input::placeholder { color: var(--text-faint); }
+.save-row input:focus {
+  outline: none; border-color: rgba(161, 0, 255, .55);
+  box-shadow: 0 0 0 3px rgba(161, 0, 255, .14);
+}
+.save-row button { flex-shrink: 0; padding: 9px 16px; font-size: 12.5px; }
+
 .hint { color: var(--text-muted); font-size: 12px; line-height: 1.7; }
 .hint strong { color: var(--text-body); font-weight: 600; }
 .hint em { color: var(--text-faint); font-style: normal; font-family: var(--font-mono); font-size: 10px; }

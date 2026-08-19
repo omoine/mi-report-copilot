@@ -39,7 +39,13 @@ Return a JSON object with exactly these keys:
 
     "sort_by": "<column to sort by, or null>",
     "sort_desc": true,
-    "limit": <number or null>
+    "limit": <number or null>,
+
+    // optional, any mode:
+    "derived": [{"name": "<new column name>", "left": "<column>", "op": "<+|-|*|/>", "right": "<column or number>"}],
+    "join": {"view": "<other view>", "on": {"left": "<key here>", "right": "<key there>"}, "bring": ["<columns to pull in>"]},
+    "add_share_of_total": false,
+    "add_cumulative": false
   },
   "chart_type": "<bar | barh | line | table>",
   "limitations": ["<specific caveat>", "..."],
@@ -74,6 +80,29 @@ TIME: never group by a raw timestamp column - every row has its own timestamp, s
 you would get one group per row. Use "time_bucket" instead. Anything about
 "by hour", "intraday profile", "over the day", "during the morning" means
 time_bucket with granularity "hour", chart_type "line".
+
+CALCULATIONS AND COMBINING:
+
+- "derived" adds a calculated column before filtering and grouping, so you can
+  then filter or aggregate on it. Use it for differences, net positions and
+  ratios: net = credits + debits, variance = calculated - EOD, utilisation =
+  used / limit. Name it in business language, since the name is what the reader
+  sees.
+- "add_share_of_total": true adds a "% of total" column next to the first
+  measure. Use it for "share of", "proportion", "percentage of", "concentration".
+- "add_cumulative": true adds a running total in the sorted order. Use it for
+  "cumulative", "running total", "build-up over the day", "by end of hour".
+  Combine with time_bucket and sort ascending for an intraday build-up.
+- "join" looks up columns from another view, like a VLOOKUP. Give the key on each
+  side and the columns to bring across. Only reach for it when the question truly
+  spans two views.
+
+IMPORTANT about joining in THIS dataset: the three views do not currently share
+any key. Account numbers in the Client View and the Business Ledger View are
+different populations, and transfer references do not appear in the ledger. If a
+question needs two views combined, say so honestly in "limitations" - that the
+views cannot be linked because no common key exists - rather than joining on
+something that merely has a similar name.
 
 COMPARING TWO THINGS - there are two different shapes, pick the right one:
 

@@ -15,7 +15,16 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from . import data_access, llm_client, md_export, pdf_export, prompts, report_builder
+from . import (
+    data_access,
+    data_export,
+    llm_client,
+    md_export,
+    pdf_export,
+    prompts,
+    report_builder,
+    saved_views,
+)
 
 # Overridable so a hosted deployment can write to a writable volume (e.g. /tmp)
 # when the application directory is read-only.
@@ -138,6 +147,10 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
             "sort_by": query.get("sort_by"),
             "sort_desc": bool(query.get("sort_desc", True)),
             "limit": limit,
+            "join": query.get("join") or None,
+            "derived": query.get("derived") or [],
+            "add_share_of_total": bool(query.get("add_share_of_total", False)),
+            "add_cumulative": bool(query.get("add_cumulative", False)),
         },
     }
 
@@ -294,7 +307,7 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
 
 
 def _render_for(result: dict[str, Any], interp: dict[str, Any], title: str,
-                session: Session, theme: str) -> dict[str, Any]:
+                session: Session, theme: str, also_svg: bool = False) -> dict[str, Any]:
     """Pick the right renderer for the query mode."""
     if result.get("mode") == "distribution" and result.get("raw_values") is not None:
         raw = result["raw_values"]
@@ -303,12 +316,12 @@ def _render_for(result: dict[str, Any], interp: dict[str, Any], title: str,
         group_col = labels[0] if labels and labels[0] in raw.columns else None
         return report_builder.render_distribution(
             raw, column, title, EXPORT_DIR, session.id,
-            theme=theme, group_col=group_col,
+            theme=theme, group_col=group_col, also_svg=also_svg,
         )
     return report_builder.build_chart(
         result["table"], interp["chart_type"], title, EXPORT_DIR, session.id,
         theme=theme, measure_columns=result.get("measure_columns"),
-        label_columns=result.get("label_columns"),
+        label_columns=result.get("label_columns"), also_svg=also_svg,
     )
 
 
@@ -406,6 +419,58 @@ The user's refinement instruction: {instruction.strip()}"""
     return build_report(session, provider)
 
 
+def save_current(session: Session, name: str, description: str = "",
+                 overwrite: bool = False) -> dict[str, Any]:
+    """Store the current view's specification under a name."""
+    if not session.interpretation:
+        raise OrchestratorError("Build a view before saving it.")
+    interp = session.interpretation
+    record = saved_views.save_view(
+        name=name,
+        query=interp["query"],
+        chart_type=interp["chart_type"],
+        user_query=session.user_query,
+        understood=interp.get("understood", ""),
+        limitations=interp.get("limitations", []),
+        dependencies=interp.get("dependencies", []),
+        description=description,
+        overwrite=overwrite,
+    )
+    return {"id": record["id"], "name": record["name"],
+            "message": f"Saved as '{record['name']}'."}
+
+
+def load_saved(session: Session, view_id: str,
+               provider: llm_client.LLMProvider) -> dict[str, Any]:
+    """Re-run a saved view against the current data.
+
+    The stored specification is replayed rather than the stored results, so a
+    saved view always reflects the data as it stands now.
+    """
+    record = saved_views.get_view(view_id)
+    session.user_query = record.get("user_query") or record["name"]
+    session.interpretation = {
+        "understood": record.get("understood", ""),
+        "limitations": record.get("limitations", []),
+        "dependencies": record.get("dependencies", []),
+        "chart_type": record.get("chart_type", "bar"),
+        "query": record["query"],
+    }
+    session.log("user", f"Loaded saved view '{record['name']}'")
+    # Fail loudly if the data has moved on and the saved query no longer runs.
+    try:
+        _dry_run(session.interpretation["query"])
+    except OrchestratorError as exc:
+        raise OrchestratorError(
+            f"The saved view '{record['name']}' no longer runs against this data: {exc}"
+        ) from exc
+
+    session.state = REPORT_BUILT
+    payload = build_report(session, provider)
+    payload["loaded_view"] = {"id": record["id"], "name": record["name"]}
+    return payload
+
+
 def export(session: Session) -> dict[str, Any]:
     """Step 4: write the PDF and its Markdown companion."""
     if session.state != REPORT_BUILT or not session.report:
@@ -418,18 +483,39 @@ def export(session: Session) -> dict[str, Any]:
 
     # Re-render the chart light for print. The on-screen chart is dark, which
     # would waste ink and read wrong on paper.
+    svg_name = None
     if session.last_result is not None and report.get("chart_path"):
         print_chart = _render_for(session.last_result, session.interpretation,
-                                  report["title"], session, theme="light")
+                                  report["title"], session, theme="light",
+                                  also_svg=True)
         if print_chart.get("chart_path"):
             report["chart_path"] = print_chart["chart_path"]
+        if print_chart.get("svg_path"):
+            svg_name = Path(print_chart["svg_path"]).name
 
     stamp = dt.datetime.now()
     pdf_path = pdf_export.build_pdf(report, EXPORT_DIR, session.id, stamp)
     md_path = md_export.build_markdown(report, EXPORT_DIR, session.id, stamp)
-    return {"pdf": pdf_path.name, "markdown": md_path.name,
-            "message": "Report exported. The Markdown file documents everything "
-                       "considered, so a reader can give it to an AI to ask follow-up questions."}
+
+    xlsx_name = None
+    if session.last_table is not None:
+        result = session.last_result or {}
+        xlsx_path = data_export.build_workbook(
+            report, session.last_table, EXPORT_DIR, session.id, stamp,
+            measure_columns=result.get("measure_columns"),
+            label_columns=result.get("label_columns"),
+        )
+        xlsx_name = xlsx_path.name
+
+    return {
+        "pdf": pdf_path.name,
+        "markdown": md_path.name,
+        "excel": xlsx_name,
+        "svg": svg_name,
+        "message": "Report exported. The Markdown documents everything considered, "
+                   "so a reader can give it to an AI to ask follow-up questions. "
+                   "The Excel carries the prepared data with an editable chart.",
+    }
 
 
 def _report_payload(session: Session) -> dict[str, Any]:

@@ -63,6 +63,16 @@ def _theme(name: str | None) -> dict[str, str]:
     return THEMES.get(name or DEFAULT_THEME, THEMES[DEFAULT_THEME])
 
 
+def _save(fig, out_path: Path, t: dict[str, Any], also_svg: bool) -> Path | None:
+    """Write the PNG, and optionally a vector copy beside it."""
+    fig.savefig(out_path, facecolor=t["surface"], bbox_inches="tight")
+    if not also_svg:
+        return None
+    svg_path = out_path.with_suffix(".svg")
+    fig.savefig(svg_path, facecolor=t["surface"], bbox_inches="tight", format="svg")
+    return svg_path
+
+
 def _human_number(value: float) -> str:
     """Compact axis/label form: 1.2bn, 340.5m, 12.3k."""
     abs_v = abs(value)
@@ -103,7 +113,8 @@ def _fold_tail(df: pd.DataFrame, label_col: str,
     return pd.concat([head, pd.DataFrame([other])], ignore_index=True), True
 
 
-def _render_hero(value: float, caption: str, out_path: Path, t: dict[str, str]) -> None:
+def _render_hero(value: float, caption: str, out_path: Path, t: dict[str, str],
+                 also_svg: bool = False) -> Path | None:
     """A single number is a stat tile, not a chart."""
     fig, ax = plt.subplots(figsize=(9, 2.6), dpi=200)
     fig.patch.set_facecolor(t["surface"])
@@ -116,8 +127,9 @@ def _render_hero(value: float, caption: str, out_path: Path, t: dict[str, str]) 
     ax.text(0.5, 0.18, caption, ha="center", va="center",
             fontsize=11, color=t["ink_secondary"], fontfamily=FONT_STACK)
     fig.tight_layout()
-    fig.savefig(out_path, facecolor=t["surface"], bbox_inches="tight")
+    svg_path = _save(fig, out_path, t, also_svg)
     plt.close(fig)
+    return svg_path
 
 
 def build_chart(
@@ -129,6 +141,7 @@ def build_chart(
     theme: str | None = None,
     measure_columns: list[str] | None = None,
     label_columns: list[str] | None = None,
+    also_svg: bool = False,
 ) -> dict[str, Any]:
     """Render the chart and return its path plus notes about what was done.
 
@@ -153,8 +166,8 @@ def build_chart(
         value = table.iloc[0, 0]
         # pd.api.types.is_number covers numpy scalars, which do not subclass int.
         if pd.api.types.is_number(value):
-            _render_hero(float(value), title, out_path, t)
-            return {"chart_path": out_path, "chart_type": "stat",
+            svg_path = _render_hero(float(value), title, out_path, t, also_svg)
+            return {"chart_path": out_path, "svg_path": svg_path, "chart_type": "stat",
                     "notes": ["Rendered as a single headline figure rather than a one-bar chart."]}
 
     if chart_type == "table" or table.shape[1] < 2:
@@ -225,9 +238,10 @@ def build_chart(
     else:
         fig = _render_bar(plot_df, label_col, value_col, title, t)
 
-    fig.savefig(out_path, facecolor=t["surface"], bbox_inches="tight")
+    svg_path = _save(fig, out_path, t, also_svg)
     plt.close(fig)
-    return {"chart_path": out_path, "chart_type": chart_type, "notes": notes}
+    return {"chart_path": out_path, "svg_path": svg_path,
+            "chart_type": chart_type, "notes": notes}
 
 
 def _render_bar(df, label_col: str, value_col: str, title: str, t: dict[str, str]):
@@ -293,6 +307,7 @@ def render_distribution(
     session_id: str,
     theme: str | None = None,
     group_col: str | None = None,
+    also_svg: bool = False,
 ) -> dict[str, Any]:
     """Histogram with mean/median/sigma markers, or a box plot when grouped.
 
@@ -318,9 +333,10 @@ def render_distribution(
     else:
         fig, notes = _render_histogram(values, column, title, t)
 
-    fig.savefig(out_path, facecolor=t["surface"], bbox_inches="tight")
+    svg_path = _save(fig, out_path, t, also_svg)
     plt.close(fig)
-    return {"chart_path": out_path, "chart_type": "distribution", "notes": notes}
+    return {"chart_path": out_path, "svg_path": svg_path,
+            "chart_type": "distribution", "notes": notes}
 
 
 def _render_histogram(values: pd.Series, column: str, title: str, t: dict[str, Any]):

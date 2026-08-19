@@ -162,6 +162,72 @@ check("md records the filter", "JPY" in md)
 check("md states figures are deterministic", "deterministic" in md.lower())
 check("md has field definitions", "Sending Strategy" in md)
 
+print("\n6b. Export formats")
+check("excel produced", bool(exp.get("excel")), exp.get("excel"))
+check("svg produced", bool(exp.get("svg")), exp.get("svg"))
+
+r = client.get(f"/api/download/{exp['excel']}")
+check("excel downloads", r.status_code == 200 and r.content[:2] == b"PK",
+      f"{len(r.content):,} bytes")
+try:
+    import io
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(io.BytesIO(r.content))
+    check("excel has data and about sheets",
+          {"Data", "About this view"} <= set(wb.sheetnames), str(wb.sheetnames))
+    # An editable chart object is the point of the Excel export.
+    check("excel carries a native chart", len(wb["Data"]._charts) > 0,
+          f"{len(wb['Data']._charts)} chart(s)")
+    about = "\n".join(str(c.value) for row in wb["About this view"].iter_rows()
+                      for c in row if c.value)
+    check("about sheet records provenance", "deterministic" in about.lower())
+except ImportError:
+    print("  [SKIP] excel internals (openpyxl missing)")
+
+r = client.get(f"/api/download/{exp['svg']}")
+check("svg downloads and is vector", r.status_code == 200 and b"<svg" in r.content[:600],
+      f"{len(r.content):,} bytes")
+
+print("\n6c. Saved views")
+r = client.post("/api/views/save", json={"session_id": sid, "name": "Eval test view"})
+check("view saved", r.status_code == 200, r.json().get("detail", "")[:60])
+
+r = client.get("/api/views")
+names = [v["name"] for v in r.json()["views"]]
+check("view appears in the list", "Eval test view" in names, str(names[:4]))
+
+r = client.get("/api/views?search=eval")
+check("search finds it", any(v["name"] == "Eval test view" for v in r.json()["views"]))
+r = client.get("/api/views?search=zzzznotathing")
+check("search excludes non-matches", r.json()["views"] == [])
+
+# Saving the same name again must ask rather than silently overwrite.
+r = client.post("/api/views/save", json={"session_id": sid, "name": "Eval test view"})
+check("duplicate name is refused", r.status_code == 400,
+      r.json().get("detail", "")[:60])
+r = client.post("/api/views/save",
+                json={"session_id": sid, "name": "Eval test view", "overwrite": True})
+check("overwrite works when confirmed", r.status_code == 200)
+
+view_id = [v["id"] for v in client.get("/api/views").json()["views"]
+           if v["name"] == "Eval test view"][0]
+r = client.post("/api/views/load", json={"view_id": view_id})
+check("saved view reloads and re-runs", r.status_code == 200,
+      r.json().get("detail", "")[:80])
+if r.status_code == 200:
+    reloaded = r.json()
+    check("reload returns figures", len(reloaded["table"]["rows"]) > 0)
+    check("reload names the view", reloaded.get("loaded_view", {}).get("name") == "Eval test view")
+
+r = client.delete(f"/api/views/{view_id}")
+check("view deleted", r.status_code == 200)
+check("deleted view is gone",
+      "Eval test view" not in [v["name"] for v in client.get("/api/views").json()["views"]])
+r = client.delete(f"/api/views/{view_id}")
+check("deleting twice is a clean 404", r.status_code == 404)
+
 print("\n7. Guard rails")
 r = client.post("/api/export", json={"session_id": "nonexistent-session"})
 check("export without report is rejected", r.status_code == 400, r.json().get("detail", "")[:50])

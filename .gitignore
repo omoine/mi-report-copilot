@@ -6,3 +6,6 @@ exports/
 
 # Anonymisation golden source - real values, never committed
 anonymisation/
+
+# Saved view configurations are local working state
+saved_views.json
