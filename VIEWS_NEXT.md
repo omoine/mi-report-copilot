@@ -162,3 +162,52 @@ Judge each on whether a manager could act on the answer, not on whether the
 query ran. Where the data stops, make the view say so — the gap is part of the
 finding, and a mature view that declares its own limits is more useful than a
 narrower one that hides them.
+
+---
+
+# Outcome
+
+All ten were built and reviewed. **Nine are saved and available to users**; the
+list now holds nineteen views.
+
+## Capabilities added to get there
+
+| Capability | Unlocked |
+|---|---|
+| Duration between two timestamps, in a stated unit | Approval turnaround |
+| Time parts — hour of day, weekday, day of month | Cut-off risk, weekday pattern |
+| Rates: share of rows in a group meeting a condition | Venue reliability |
+| `quality` mode — completeness of every column | Data completeness |
+| `nunique` — counting things rather than rows | Dormancy, and generally |
+| Compact grouped distributions, sorted by spread | Balance volatility |
+
+## Two defects this surfaced
+
+**Subtracting two timestamps produced nanoseconds.** A 34-minute turnaround came
+out as `2,040,000,000`, with no unit anywhere to say otherwise, and it silently
+destroyed the two timestamp columns it was built from. Timestamp arithmetic is
+now refused outright and points at the duration form, which always carries its
+unit in the column name.
+
+**Bucketing a date-only column by hour collapsed to a single row.** Every value
+falls at midnight, so the result looked like an answer rather than a mistake.
+That is now refused with an explanation.
+
+## Not saved: account dormancy
+
+It can only return a single number. The engine cannot compute a filtered and an
+unfiltered aggregate side by side — "accounts with movement" and "accounts in
+total" are two queries — so the comparison the question asks for cannot be made
+in one view. Worth fixing if a comparison-to-baseline capability is ever built;
+it would also serve period-on-period questions.
+
+Separately, dormant accounts are absent from the extract altogether: roughly
+6,000 account/currency pairs exist in the estate and only the ~900 that moved
+appear. The view can only ever describe what is present, and says so.
+
+## What the data completeness view immediately showed
+
+`Upstream Transaction ID` is populated on **44.6%** of ledger rows. That is the
+key linking ledger postings back to transfers, so slightly over half of all
+postings cannot be traced to the transfer that caused them — which caps every
+cross-view question that depends on that link.

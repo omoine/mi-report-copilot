@@ -78,6 +78,60 @@ VIEWS: list[tuple[int, str, str, str]] = [
      "Which single transactions are big enough that I should know about them?",
      "List the twenty largest ledger transactions this month with counterparty, "
      "account, currency and amount."),
+
+    # ---- the second ten ------------------------------------------------
+    (11, "Funding efficiency",
+     "Of the money that leaves each day, how much was already covered by money "
+     "that had arrived? Are we funding ahead of outflows or chasing them?",
+     "For the most recent day, show credits and debits by hour with the running "
+     "net position, so I can see whether inflows arrived before outflows."),
+
+    (12, "Cut-off risk",
+     "How much value settles late in the day, and where? Concentration near "
+     "cut-off is where an operational problem becomes a liquidity problem.",
+     "How much ledger value settles after 16:00 each day, and which currencies "
+     "and desks does it sit in?"),
+
+    (13, "Approval turnaround",
+     "How long does approval actually take, not just what is queued now?",
+     "How long does it take for transfers to go from created to approved? Show "
+     "the median and 95th percentile turnaround by desk."),
+
+    (14, "Reconciliation break movement",
+     "Are breaks being cleared or accumulating day by day?",
+     "Show the number of reconciliation breaks per day across the month, in date "
+     "order, so I can see whether breaks are growing or being cleared."),
+
+    (15, "Currency pair flow",
+     "Which currencies are we consistently short of and long in?",
+     "Show the net position by currency across the month - credits less debits - "
+     "so I can see which currencies we are structurally short of."),
+
+    (16, "Venue reliability",
+     "Which correspondent venues fail or reject most, relative to what we send "
+     "them? A rate, not a count.",
+     "Which venues have the highest rate of failed or rejected transfers, "
+     "relative to the total volume we send them?"),
+
+    (17, "Account dormancy",
+     "How much of the account estate is actually used?",
+     "How many distinct client accounts show credit or debit movement this "
+     "month? Compare that with the total number of distinct accounts present."),
+
+    (18, "Balance volatility",
+     "Which accounts swing most day to day? That is where buffers are set.",
+     "Which client accounts have the most volatile daily balance swing? Show the "
+     "spread of their daily swing, largest first."),
+
+    (19, "Month-end and weekday effects",
+     "How much do month-end and the day of the week change our funding need?",
+     "Compare total daily ledger flow by day of the week, so I can see which "
+     "days are consistently heavier."),
+
+    (20, "Data quality",
+     "How complete is the data these reports rest on?",
+     "How complete is the business ledger data? Show every column with how many "
+     "rows are populated and how many are missing, least complete first."),
 ]
 
 
@@ -173,6 +227,8 @@ def to_markdown(records: list[dict]) -> str:
 def main_run() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--only", type=int, help="run a single view by number")
+    parser.add_argument("--from", dest="start", type=int, default=0,
+                        help="run views from this number onwards")
     parser.add_argument("--out", type=Path,
                         default=Path("exports") / "view_review.md")
     args = parser.parse_args()
@@ -183,7 +239,8 @@ def main_run() -> int:
         return 1
     print(f"Data: {health['data_file']}  {health['views']}\n")
 
-    todo = [v for v in VIEWS if not args.only or v[0] == args.only]
+    todo = [v for v in VIEWS
+            if (not args.only or v[0] == args.only) and v[0] >= args.start]
     records = []
     for number, name, intent, prompt in todo:
         print(f"[{number:>2}] {name}")

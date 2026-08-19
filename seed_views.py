@@ -88,6 +88,63 @@ VIEWS: list[tuple[str, str, str]] = [
      "cannot be attributed to the ledger view.",
      "Compare our desks: total ledger flow by sub branch, with each desk's "
      "share, and break it down by legal entity as well."),
+
+    # ---- the second ten ------------------------------------------------
+    # Account dormancy is not here: it can only return a single count, because
+    # the engine cannot compute a filtered and an unfiltered aggregate side by
+    # side, and dormant accounts are absent from the extract entirely.
+    ("Funding efficiency",
+     "Credits against debits by hour for the most recent day, with a running "
+     "total, showing whether inflows arrived before outflows.",
+     "For the most recent day, show credits and debits by hour with the running "
+     "net position, so I can see whether inflows arrived before outflows."),
+
+    ("Cut-off risk",
+     "Value settling after 16:00, by currency and desk. Late concentration is "
+     "where an operational delay becomes a liquidity problem.",
+     "How much ledger value settles after 16:00 each day, and which currencies "
+     "and desks does it sit in?"),
+
+    ("Approval turnaround",
+     "Median and 95th percentile time from creation to approval. The queue view "
+     "says what is waiting; this says how long waiting normally lasts.",
+     "How long does it take for transfers to go from created to approved? Show "
+     "the median and 95th percentile turnaround by desk."),
+
+    ("Reconciliation break trend",
+     "Breaks per day across the period against the average, with unusual days "
+     "marked, so it is clear whether breaks are growing or being cleared.",
+     "Show the number of reconciliation breaks per day across the month, in date "
+     "order, so I can see whether breaks are growing or being cleared."),
+
+    ("Currency net position",
+     "Net position by currency across the period - which currencies we are "
+     "structurally short of and long in.",
+     "Show the net position by currency across the month - credits less debits - "
+     "so I can see which currencies we are structurally short of."),
+
+    ("Venue reliability",
+     "Failure and rejection rate by venue, as a proportion of what we send them. "
+     "A rate, not a count - three failures in five beats ten in a thousand.",
+     "Which venues have the highest rate of failed or rejected transfers, "
+     "relative to the total volume we send them?"),
+
+    ("Balance volatility by account",
+     "Accounts ranked by how much their daily balance swings. Volatile balances "
+     "are where buffers are set and forecasting is hardest.",
+     "Which client accounts have the most volatile daily balance swing? Show the "
+     "spread of their daily swing, largest first."),
+
+    ("Weekday flow pattern",
+     "Ledger flow by day of the week, to see which days are consistently heavier.",
+     "Compare total daily ledger flow by day of the week, so I can see which "
+     "days are consistently heavier."),
+
+    ("Data completeness",
+     "How populated every column of the ledger is, least complete first. Every "
+     "other view inherits the quality of these fields.",
+     "How complete is the business ledger data? Show every column with how many "
+     "rows are populated and how many are missing, least complete first."),
 ]
 
 

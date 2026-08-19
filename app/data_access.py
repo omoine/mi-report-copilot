@@ -386,11 +386,16 @@ def _single_mask(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
 
 
 AGGREGATIONS = {"sum", "mean", "count", "min", "max", "median", "std", "var",
-                "p25", "p50", "p75", "p90", "p95", "p99"}
+                "nunique", "p25", "p50", "p75", "p90", "p95", "p99"}
+
+# Aggregations that work on any column, not only a numeric one.
+NON_NUMERIC_AGGREGATIONS = {"count", "nunique", "min", "max"}
 
 
 def _aggregate_series(series: pd.Series, how: str):
     """Apply an aggregation name, including the percentile forms."""
+    if how == "nunique":
+        return series.nunique(dropna=True)
     if how.startswith("p") and how[1:].isdigit():
         return series.quantile(int(how[1:]) / 100)
     if how == "std":
@@ -580,6 +585,106 @@ def apply_age(df: pd.DataFrame, spec: dict[str, Any], view: str,
     return df, added
 
 
+TIME_PARTS = {
+    "hour_of_day": ("Hour of day", lambda s: s.dt.hour.map(lambda h: f"{h:02d}:00")),
+    "weekday": ("Day of week", lambda s: s.dt.day_name()),
+    "day_of_month": ("Day of month", lambda s: s.dt.day),
+    "week_of_year": ("Week", lambda s: s.dt.isocalendar().week.astype(int)),
+    "month": ("Month", lambda s: s.dt.strftime("%Y-%m")),
+}
+WEEKDAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+                 "Saturday", "Sunday"]
+
+
+def apply_time_part(df: pd.DataFrame, spec: dict[str, Any], view: str) -> pd.DataFrame:
+    """Pull a repeating part out of a timestamp - the hour of the day, the day
+    of the week - so it can be grouped or filtered on.
+
+    A time bucket answers "when did this happen"; a time part answers "does this
+    happen at the same point in every day or week", which is a different
+    question and cannot be reached by bucketing.
+    """
+    column = spec.get("part_of")
+    _require_column(df, column, "a time part", view)
+    part = str(spec.get("part") or "hour_of_day").lower()
+    if part not in TIME_PARTS:
+        raise QueryError(f"Unsupported time part '{part}'. "
+                         f"Use one of: {', '.join(TIME_PARTS)}.")
+
+    stamps = pd.to_datetime(df[column], errors="coerce")
+    if stamps.notna().sum() == 0:
+        raise QueryError(f"Column '{column}' does not contain readable timestamps.")
+
+    default_name, extract = TIME_PARTS[part]
+    name = spec.get("name") or default_name
+    return df.assign(**{name: extract(stamps)})
+
+
+def profile_completeness(view: str, df: pd.DataFrame,
+                         columns: list[str] | None) -> pd.DataFrame:
+    """How populated each column is.
+
+    Every other view inherits the quality of these fields, so this is the one
+    report whose entire value is in what is absent.
+    """
+    total = len(df)
+    wanted = [c for c in (columns or df.columns) if c in df.columns]
+    rows = []
+    for col in wanted:
+        series = df[col]
+        blank = series.isna()
+        if not pd.api.types.is_numeric_dtype(series):
+            blank = blank | series.astype(str).str.strip().isin(["", "None", "nan", "NaT"])
+        missing = int(blank.sum())
+        rows.append({
+            "Column": col,
+            "Populated": total - missing,
+            "Missing": missing,
+            "% populated": round(100 * (total - missing) / total, 1) if total else 0.0,
+            "Distinct values": int(series.nunique(dropna=True)),
+        })
+    result = pd.DataFrame(rows).sort_values("% populated").reset_index(drop=True)
+    return result
+
+
+def apply_duration(df: pd.DataFrame, spec: dict[str, Any], view: str) -> pd.DataFrame:
+    """Elapsed time between two timestamp columns, in a stated unit.
+
+    Subtracting two timestamps with ordinary arithmetic yields nanoseconds -
+    a turnaround of "2,040,000,000" that is really 34 minutes, and no label to
+    say so. The unit is always part of the column name here.
+    """
+    start, end = spec.get("duration_from"), spec.get("duration_to")
+    _require_column(df, start, "the start of a duration", view)
+    _require_column(df, end, "the end of a duration", view)
+
+    unit = str(spec.get("unit") or "hours").lower()
+    if unit not in AGE_UNITS:
+        raise QueryError(f"Unsupported duration unit '{unit}'. "
+                         f"Use one of: {', '.join(AGE_UNITS)}.")
+
+    begin = pd.to_datetime(df[start], errors="coerce")
+    finish = pd.to_datetime(df[end], errors="coerce")
+    if begin.notna().sum() == 0 or finish.notna().sum() == 0:
+        raise QueryError(
+            f"A duration needs two timestamp columns; '{start}' and '{end}' do "
+            "not both contain readable timestamps."
+        )
+
+    name = spec.get("name") or f"Duration ({unit})"
+    if unit not in name.lower():
+        name = f"{name} ({unit})"
+    elapsed = (finish - begin).dt.total_seconds() / AGE_UNITS[unit]
+    return df.assign(**{name: elapsed.round(2)})
+
+
+def _is_temporal(series: pd.Series) -> bool:
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return True
+    sample = series.dropna()
+    return bool(len(sample)) and isinstance(sample.iloc[0], (dt.datetime, dt.date))
+
+
 def apply_derived(df: pd.DataFrame, specs: list[dict[str, Any]], view: str) -> tuple[pd.DataFrame, list[str]]:
     """Add calculated columns from arithmetic between two columns, or a column
     and a constant."""
@@ -595,11 +700,44 @@ def apply_derived(df: pd.DataFrame, specs: list[dict[str, Any]], view: str) -> t
             df, age_columns = apply_age(df, spec, view, reference)
             added.extend(age_columns)
             continue
+        if spec.get("duration_from") and spec.get("duration_to"):
+            before = set(df.columns)
+            df = apply_duration(df, spec, view)
+            added.extend(sorted(set(df.columns) - before))
+            continue
+        if spec.get("part_of"):
+            before = set(df.columns)
+            df = apply_time_part(df, spec, view)
+            added.extend(sorted(set(df.columns) - before))
+            continue
         op = spec.get("op")
         if op not in ops:
-            raise QueryError(f"Unsupported operator '{op}'. Use one of: {', '.join(ops)}.")
+            raise QueryError(
+                f"'{op}' is not a calculation. A derived column combines two "
+                f"columns arithmetically ({', '.join(ops)}). To select rows by a "
+                "comparison use a filter instead, or count distinct values with "
+                "the nunique aggregation."
+            )
         left, right = spec.get("left"), spec.get("right")
         _require_column(df, left, "a calculation input", view)
+
+        # Timestamps must never be coerced into numbers. Doing so turns a
+        # subtraction into nanoseconds, which reads as a plausible figure and is
+        # wrong by nine orders of magnitude.
+        if _is_temporal(df[left]) or (isinstance(right, str) and right in df.columns
+                                      and _is_temporal(df[right])):
+            if op == "-" and isinstance(right, str) and right in df.columns:
+                raise QueryError(
+                    f"'{left}' and '{right}' are timestamps. To measure the time "
+                    "between them use a duration - give duration_from, "
+                    "duration_to and a unit - rather than subtracting them, "
+                    "which would produce nanoseconds."
+                )
+            raise QueryError(
+                f"'{left}' is a timestamp and cannot be used in arithmetic. "
+                "Use a duration between two timestamps, or an age from one."
+            )
+
         df = _as_numeric(df, left)
         left_series = df[left]
 
@@ -822,11 +960,51 @@ def _apply_time_bucket(
     if stamps.notna().sum() == 0:
         raise QueryError(f"Column '{col}' does not contain readable timestamps.")
 
+    # A date with no time component cannot be bucketed within a day: every value
+    # would land at midnight and collapse into a single row that looks like an
+    # answer.
+    if gran in INTRADAY_GRANULARITIES:
+        clock = stamps.dropna()
+        if ((clock.dt.hour == 0) & (clock.dt.minute == 0)
+                & (clock.dt.second == 0)).all():
+            raise QueryError(
+                f"'{col}' holds a date with no time of day, so it cannot be "
+                f"broken down by {gran} - every row would fall at midnight. Use "
+                "a column that carries a timestamp, or a 'day' granularity."
+            )
+
     label = f"{col} ({gran})"
     bucketed = stamps.dt.floor(freq) if freq not in {"W", "MS"} else stamps.dt.to_period(
         "W" if freq == "W" else "M"
     ).dt.start_time
     return df.assign(**{label: bucketed.dt.strftime(fmt)}), label
+
+
+def apply_rate(df: pd.DataFrame, result: pd.DataFrame, group_by: list[str],
+               spec: dict[str, Any]) -> tuple[pd.DataFrame, str]:
+    """Share of rows in each group meeting a condition.
+
+    A count of failures ranks the busiest venues, not the least reliable ones.
+    Three failures out of five is a different problem from ten out of a
+    thousand, and only a rate distinguishes them.
+    """
+    condition = spec.get("where")
+    if not condition:
+        raise QueryError("A rate needs a 'where' condition to measure against.")
+
+    mask = _filter_mask(df, condition)
+    totals = df.groupby(group_by, dropna=False).size().rename("__total__")
+    hits = df[mask].groupby(group_by, dropna=False).size().rename("__hits__")
+    combined = pd.concat([totals, hits], axis=1).fillna(0).reset_index()
+
+    name = spec.get("name") or "Rate %"
+    combined[name] = (combined["__hits__"] / combined["__total__"] * 100).round(1)
+    combined["Of total"] = combined["__total__"].astype(int)
+    combined["Matching"] = combined["__hits__"].astype(int)
+
+    merged = result.merge(
+        combined[group_by + [name, "Matching", "Of total"]], on=group_by, how="left")
+    return merged, name
 
 
 def _normalise_measures(
@@ -860,8 +1038,20 @@ def _normalise_measures(
     for m in out:
         counts[m["label"]] = counts.get(m["label"], 0) + 1
     for m in out:
-        if counts[m["label"]] > 1:
+        if counts[m["label"]] > 1 and m.get("column"):
             m["label"] = f"{m['aggregation']} of {m['column']}"
+
+    # Qualifying is not always enough - two bare counts both qualify to the same
+    # thing - so guarantee uniqueness rather than letting pandas raise on a
+    # duplicate column label.
+    seen: dict[str, int] = {}
+    for m in out:
+        base = m["label"]
+        if base in seen:
+            seen[base] += 1
+            m["label"] = f"{base} ({seen[base]})"
+        else:
+            seen[base] = 1
     return out
 
 
@@ -878,6 +1068,7 @@ def run_query(
     limit: int | None = None,
     join: dict[str, Any] | None = None,
     derived: list[dict[str, Any]] | None = None,
+    rate: dict[str, Any] | None = None,
     add_share_of_total: bool = False,
     add_cumulative: bool = False,
     # Accepted for convenience; folded into `measures`.
@@ -934,10 +1125,10 @@ def run_query(
     rows_after_filters = len(df)
 
     mode = (mode or "aggregate").lower()
-    if mode not in {"aggregate", "list", "distribution", "peak"}:
+    if mode not in {"aggregate", "list", "distribution", "peak", "quality"}:
         raise QueryError(
             f"Unsupported mode '{mode}'. Use 'aggregate', 'list', "
-            "'distribution' or 'peak'."
+            "'distribution', 'peak' or 'quality'."
         )
 
     # Fold the single-measure convenience form into the list form.
@@ -953,7 +1144,13 @@ def run_query(
 
     raw_values: pd.DataFrame | None = None
 
-    if mode == "peak":
+    if mode == "quality":
+        result = profile_completeness(view, df, columns)
+        label_columns = ["Column"]
+        measure_columns = [c for c in result.columns if c != "Column"]
+        resolved_measures = []
+
+    elif mode == "peak":
         resolved_measures = _normalise_measures(measures, view, df)
         if not resolved_measures or not resolved_measures[0].get("column"):
             resolved_measures = [{"column": DEFAULT_MEASURE[view],
@@ -1017,16 +1214,30 @@ def run_query(
         df = _as_numeric(df, target)
 
         if group_by:
-            # One distribution per group, compared side by side.
+            # One distribution per group, compared side by side. Only the
+            # comparable statistics: the sigma-coverage columns describe a single
+            # distribution's shape and are noise repeated across hundreds of rows.
+            compact = ["count", "mean", "median", "std", "min", "max"]
             rows = []
             for key, part in df.groupby(group_by[0], dropna=False):
                 stats = describe_series(part[target])
                 if stats:
-                    rows.append({group_by[0]: str(key), **stats})
+                    rows.append({group_by[0]: str(key),
+                                 **{k: stats[k] for k in compact if k in stats}})
             result = pd.DataFrame(rows)
+            # Widest spread first: the question behind a grouped distribution is
+            # almost always "which of these is most variable".
+            if "std" in result.columns:
+                result = result.sort_values("std", ascending=False).reset_index(drop=True)
             label_columns = [group_by[0]]
             measure_columns = [c for c in result.columns if c != group_by[0]]
             raw_values = df[[group_by[0], target]].copy()
+            if len(result) > MANAGEMENT_ROW_CAP:
+                currency_notes.append(
+                    f"Showing the {MANAGEMENT_ROW_CAP} most variable of "
+                    f"{len(result)} groups, by standard deviation."
+                )
+                result = result.head(MANAGEMENT_ROW_CAP)
         else:
             stats = describe_series(df[target])
             if not stats:
@@ -1078,7 +1289,7 @@ def run_query(
             group_by = [bucket_label] + group_by
 
         for m in resolved_measures:
-            if m["aggregation"] != "count":
+            if m["aggregation"] not in NON_NUMERIC_AGGREGATIONS:
                 df = _as_numeric(df, m["column"])
 
         # With no rows and no grouping the honest answer is still a number -
@@ -1115,6 +1326,12 @@ def run_query(
                 measure_columns = [c for c in result.columns if c != group_by[0]]
                 label_columns = [group_by[0]]
                 pivoted = True
+
+            if rate:
+                result, rate_col = apply_rate(df, result, group_by, rate)
+                measure_columns.extend([rate_col, "Matching", "Of total"])
+                if not sort_by:
+                    sort_by = rate_col
 
             # Sort by the named column if given, else the first measure.
             order_col = sort_by if sort_by in result.columns else measure_columns[0]

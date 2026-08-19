@@ -121,7 +121,7 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
         return [v for v in (value or []) if v]
 
     mode = (query.get("mode") or "aggregate").lower()
-    if mode not in {"aggregate", "list", "distribution", "peak"}:
+    if mode not in {"aggregate", "list", "distribution", "peak", "quality"}:
         mode = "aggregate"
 
     measures = query.get("measures") or []
@@ -172,6 +172,7 @@ def _validate_interpretation(payload: dict[str, Any]) -> dict[str, Any]:
             "limit": limit,
             "join": query.get("join") or None,
             "derived": query.get("derived") or [],
+            "rate": query.get("rate") or None,
             "add_share_of_total": bool(query.get("add_share_of_total", False)),
             "add_cumulative": bool(query.get("add_cumulative", False)),
         },
@@ -292,7 +293,10 @@ def _summarise_query(query: dict[str, Any], chart_type: str) -> str:
     view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
     parts: list[str] = []
 
-    if query.get("mode") == "peak":
+    if query.get("mode") == "quality":
+        parts.append(f"How completely each column of {view_name} is populated, "
+                     "least complete first")
+    elif query.get("mode") == "peak":
         measures = query.get("measures") or []
         target = (measures[0].get("column") if measures else None) or "the position"
         parts.append(f"The peak and lowest intraday position of {target} "
@@ -417,6 +421,9 @@ def _render_for(result: dict[str, Any], interp: dict[str, Any], title: str,
 def _title_for(interp: dict[str, Any]) -> str:
     query = interp["query"]
     view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
+
+    if query.get("mode") == "quality":
+        return f"Data completeness - {view_name}"
 
     if query.get("mode") == "peak":
         title = "Peak intraday position"

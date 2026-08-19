@@ -26,7 +26,7 @@ Return a JSON object with exactly these keys:
   "understood": "<one or two sentences restating, in business language, the view you will build>",
   "query": {
     "view": "<one of: nostro_transfer | client | business_ledger>",
-    "mode": "<aggregate | list | distribution | peak>",
+    "mode": "<aggregate | list | distribution | peak | quality>",
     "filters": [{"column": "<exact column name>", "operator": "<eq|ne|gt|gte|lt|lte|in|not_in|contains|is_null|not_null>", "value": <string, number or list>},
                 {"any": [ {...}, {...} ]}],
 
@@ -43,7 +43,11 @@ Return a JSON object with exactly these keys:
     "limit": <number or null>,
 
     // optional, any mode:
-    "derived": [{"name": "<new column name>", "left": "<column>", "op": "<+|-|*|/>", "right": "<column or number>"}],
+    "derived": [{"name": "<new column name>", "left": "<column>", "op": "<+|-|*|/>", "right": "<column or number>"},
+                {"name": "<name>", "age_of": "<timestamp column>", "unit": "hours"},
+                {"name": "<name>", "duration_from": "<timestamp>", "duration_to": "<timestamp>", "unit": "<minutes|hours|days>"},
+                {"part_of": "<timestamp column>", "part": "<hour_of_day|weekday|day_of_month|week_of_year|month>"}],
+    "rate": {"name": "<e.g. Failure rate %>", "where": { ...a filter or an any-group... }},
     "join": {"view": "<other view>", "on": {"left": "<key here>", "right": "<key there>"}, "bring": ["<columns to pull in>"]},
     "add_share_of_total": false,
     "add_cumulative": false
@@ -75,6 +79,14 @@ CHOOSING THE MODE - this matters more than anything else:
   Do NOT answer these with a plain sum: a total tells you the volume that moved,
   not the position that had to be funded, and a running total that never resets
   describes a month-long accumulation rather than an intraday position.
+
+- "quality" when the user asks about the DATA ITSELF: "how complete", "how many
+  are missing", "data quality", "populated", "blank", "are we capturing".
+  It reports every column with how many rows are populated, how many are
+  missing, the percentage and the number of distinct values, worst first. Put
+  specific columns in "columns" to narrow it. Do not answer this by counting
+  rows where a field is blank - that gives one number for a question about many
+  fields.
 
 - "distribution" when the user asks HOW VALUES ARE SPREAD: "distribution of",
   "statistical analysis", "mean, median and quantiles", "standard deviations",
@@ -108,6 +120,36 @@ CALCULATIONS AND COMBINING:
   ratios: net = credits + debits, variance = calculated - EOD, utilisation =
   used / limit. Name it in business language, since the name is what the reader
   sees.
+- DURATION BETWEEN TWO TIMESTAMPS. For "how long does it take", "turnaround",
+  "time from X to Y", "processing time", use
+  {"name":"Turnaround","duration_from":"<start>","duration_to":"<end>",
+   "unit":"minutes"}. NEVER subtract two timestamps with "op": "-" - that
+  produces nanoseconds, so a 34-minute turnaround reads as 2,040,000,000. The
+  engine refuses it.
+
+- TIME PARTS. "by hour of the day", "which day of the week", "by day of the
+  month", "does this always happen at the same time" are asking about a
+  repeating part of a timestamp, not a point in time. Use
+  {"part_of":"<timestamp>","part":"weekday"} and group by the column it creates
+  ("Day of week", "Hour of day", "Day of month"). A time_bucket cannot answer
+  these: bucketing by hour gives one row per hour per DAY, not per hour of the
+  day across all days.
+
+- COUNTING THINGS, not rows. "How many accounts", "how many counterparties",
+  "how many distinct" need {"column":"Account","aggregation":"nunique"}. A plain
+  count counts rows, and one account appears on many rows.
+  Note also that the Client View only contains accounts that appear in the
+  extract. Accounts with no rows at all are not in it, so a question about
+  dormant or unused accounts can report what is present and must record the rest
+  under "unavailable" - the wider account estate is not in this data.
+
+- RATES, not counts. "Which venue fails most", "highest failure rate", "worst
+  performing", "relative to volume" need a proportion. Use
+  "rate": {"name":"Failure rate %","where":{...the failing condition...}}
+  alongside a count measure and a group_by. A plain count of failures ranks the
+  busiest venues, not the least reliable ones - three failures out of five is a
+  worse problem than ten out of a thousand.
+
 - AGEING. For anything about how long something has been waiting - a queue, a
   backlog, "how old", "how long", "still outstanding", "aged" - add
   {"name": "Waiting", "age_of": "<timestamp column>", "unit": "hours"}. That
@@ -174,6 +216,23 @@ Rules for the query:
   cannot both be true at once - if they could never co-occur, you meant "any".
 - Prefer a display-currency measure when comparing across currencies, because
   local-currency amounts are not additive across different currencies.
+- THE CLIENT VIEW IS A DAILY SNAPSHOT. It carries one row per account per value
+  date, and its only timestamp is when the last transaction happened to arrive.
+  It cannot answer anything about timing within a day. Every intraday question -
+  by hour, when money arrives, the profile through the day - must use the
+  Business Ledger View, which carries a real transaction timestamp.
+
+- WHEN AN AMOUNT CANNOT BE TOTALLED ACROSS CURRENCIES. Some local-currency
+  columns have no FX-translated twin: on the Client View, EOD Balance (Local) and
+  Difference (Local) are the two. Summing those across currencies is refused. Do
+  NOT abandon the question - answer it a way that holds and say what you could
+  not do:
+    count the rows instead of summing them (a count of breaks per day is a valid
+      and useful answer even when their total value is not),
+    or group by the currency column so each figure covers one currency,
+    or filter to a single currency.
+  Then record the part you could not do in "unavailable".
+
 - CRITICAL - the Nostro Transfer View has NO display-currency column: its
   "Value Amount" is always in the transfer's own currency. So any breakdown of
   that view across currencies is comparing unlike units, and one JPY is not one
@@ -292,6 +351,44 @@ WORKED EXAMPLES - match the shape of these.
   measures: [{"aggregation":"count"},
              {"column":"Value Amount (Display)","aggregation":"sum"}],
   chart_type: "bar"
+
+"How long does approval take, by desk?"
+  mode: "aggregate", view: "nostro_transfer",
+  filters: [{"column":"Approved Time","operator":"not_null"}],
+  derived: [{"name":"Turnaround","duration_from":"Created Time",
+             "duration_to":"Approved Time","unit":"minutes"}],
+  group_by: ["Sending Strategy"],
+  measures: [{"column":"Turnaround (minutes)","aggregation":"median"},
+             {"column":"Turnaround (minutes)","aggregation":"p95"}],
+  chart_type: "barh"
+
+"Which day of the week is heaviest?"
+  mode: "aggregate", view: "business_ledger",
+  derived: [{"part_of":"Transaction Timestamp","part":"weekday"}],
+  group_by: ["Day of week"],
+  measures: [{"column":"Amount (Display)","aggregation":"sum"}],
+  chart_type: "bar"
+
+"Which venues have the worst failure rate?"
+  mode: "aggregate", view: "nostro_transfer",
+  group_by: ["Target Account Venue Location"],
+  measures: [{"aggregation":"count"}],
+  rate: {"name":"Failure rate %","where":{"any":[
+      {"column":"Transfer Status","operator":"eq","value":"FAILED"},
+      {"column":"Message Status","operator":"contains","value":"REJECTED"}]}},
+  limit: 10, chart_type: "barh"
+
+"How complete is the ledger data?"
+  mode: "quality", view: "business_ledger", chart_type: "barh"
+
+"How much settles after 16:00?"
+  mode: "aggregate", view: "business_ledger",
+  derived: [{"part_of":"Transaction Timestamp","part":"hour_of_day"}],
+  filters: [{"column":"Hour of day","operator":"gte","value":"16:00"}],
+  group_by: ["CCY (Local)"],
+  measures: [{"column":"Amount (Display)","aggregation":"sum"},
+             {"aggregation":"count"}],
+  chart_type: "barh"
 
 "Statistical analysis of flow values - mean, median, quantiles, +/-3 sigma"
   mode: "distribution", view: "nostro_transfer",
