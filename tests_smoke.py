@@ -125,10 +125,12 @@ check("hourly bucketing reduces group count",
 check("bucket column is labelled", "Transaction Timestamp (hour)" in hourly["table"].columns,
       str(list(hourly["table"].columns)))
 
+# Counted rather than summed: this sample has no FX-translated transfer amount,
+# so summing across currencies is refused by the cross-currency guard (5i).
 daily = data_access.run_query(
     "nostro_transfer",
     time_bucket={"column": "Created Time", "granularity": "day"},
-    measures=[{"column": "Value Amount", "aggregation": "sum"}])
+    measures=[{"aggregation": "count"}])
 check("day granularity works", len(daily["table"]) >= 1, f"{len(daily['table'])} days")
 
 try:
@@ -159,8 +161,10 @@ check("grouped bar chart renders",
       grouped_chart["chart_path"] and grouped_chart["chart_path"].exists())
 
 print("\n5e. Distribution / statistics")
-dist = data_access.run_query("nostro_transfer", mode="distribution",
-                             measures=[{"column": "Value Amount"}])
+# An FX-translated column, so the spread describes the business rather than the
+# exchange rate. The local-currency equivalent is refused - see 5i.
+dist = data_access.run_query("business_ledger", mode="distribution",
+                             measures=[{"column": "Amount (Display)"}])
 stats = dict(zip(dist["table"]["Statistic"], dist["table"]["Value"]))
 check("distribution returns the standard statistics",
       {"mean", "median", "std", "p25", "p75", "p95"} <= set(stats),
@@ -177,7 +181,8 @@ check("raw values carried for plotting", dist["raw_values"] is not None,
       f"{len(dist['raw_values'])} values")
 
 hist = report_builder.render_distribution(
-    dist["raw_values"], "Value Amount", "Distribution of Value Amount", OUT, "smoke")
+    dist["raw_values"], "Amount (Display)", "Distribution of Amount (Display)",
+    OUT, "smoke")
 check("histogram renders", hist["chart_path"] and hist["chart_path"].exists())
 check("histogram reports real sigma coverage",
       any("standard deviation" in n for n in hist["notes"]),
@@ -185,7 +190,7 @@ check("histogram reports real sigma coverage",
 
 grouped_dist = data_access.run_query("nostro_transfer", mode="distribution",
                                      measures=[{"column": "Value Amount"}],
-                                     group_by=["Currency"])
+                                     group_by=["Currency"])  # per-currency: valid
 check("grouped distribution returns one row per group",
       len(grouped_dist["table"]) > 1, f"{len(grouped_dist['table'])} groups")
 box = report_builder.render_distribution(
@@ -243,6 +248,25 @@ if cum_col:
           abs(vals[-1] - cum["table"]["Amount (Display)"].sum()) < 0.01,
           f"ends at {vals[-1]:,.0f}")
 
+# A running total must restart per group rather than accumulate across them:
+# summed down a currency-split column it would add unlike units.
+part = data_access.run_query(
+    "business_ledger",
+    time_bucket={"column": "Transaction Timestamp", "granularity": "day"},
+    group_by=["CCY (Local)"],
+    measures=[{"column": "Amount (Local)"}],
+    sort_by="Transaction Timestamp (day)", sort_desc=False,
+    add_cumulative=True)
+pcol = [c for c in part["table"].columns if c.startswith("Cumulative")][0]
+per_ccy_totals = part["table"].groupby("CCY (Local)")["Amount (Local)"].sum()
+per_ccy_final = part["table"].groupby("CCY (Local)")[pcol].last()
+check("running total restarts for each currency",
+      ((per_ccy_totals - per_ccy_final).abs() < 0.01).all(),
+      f"{len(per_ccy_totals)} currencies, each ending at its own total")
+check("the partitioning is reported",
+      any("within each" in n for n in part["provenance"]["currency_corrections"]),
+      str(part["provenance"]["currency_corrections"])[:110])
+
 print("\n5g. Combine / vlookup")
 try:
     data_access.run_query("business_ledger", mode="list",
@@ -265,6 +289,85 @@ check("join works when keys overlap", len(self_join["table"]) == 5,
 check("join reported in provenance",
       self_join["provenance"]["join"]["rows_matched"] > 0,
       str(self_join["provenance"]["join"]))
+
+print("\n5h. OR filters (the union, not the intersection)")
+nostro = data_access.get_frame("nostro_transfer")
+n_failed = (nostro["Transfer Status"] == "FAILED").sum()
+n_pending = (nostro["Transfer Status"] == "PENDING_APPROVAL").sum()
+
+either = data_access.run_query(
+    "nostro_transfer",
+    filters=[{"any": [
+        {"column": "Transfer Status", "operator": "eq", "value": "FAILED"},
+        {"column": "Transfer Status", "operator": "eq", "value": "PENDING_APPROVAL"}]}],
+    measures=[{"aggregation": "count"}])
+got = either["table"].iloc[0, 0]
+check("any-group returns the union", got == n_failed + n_pending,
+      f"got {got}, expected {n_failed + n_pending} ({n_failed} + {n_pending})")
+
+# The same two conditions ANDed must return nothing - they cannot co-occur.
+both = data_access.run_query(
+    "nostro_transfer",
+    filters=[{"column": "Transfer Status", "operator": "eq", "value": "FAILED"},
+             {"column": "Transfer Status", "operator": "eq", "value": "PENDING_APPROVAL"}],
+    measures=[{"aggregation": "count"}])
+check("plain list still means AND", both["table"].iloc[0, 0] == 0,
+      f"got {both['table'].iloc[0, 0]}")
+
+nested = data_access.run_query(
+    "nostro_transfer",
+    filters=[{"any": [
+        {"column": "Transfer Status", "operator": "eq", "value": "FAILED"},
+        {"column": "Transfer Status", "operator": "eq", "value": "PENDING_APPROVAL"}]},
+        {"column": "Currency", "operator": "eq", "value": "USD"}],
+    measures=[{"aggregation": "count"}])
+check("any-group combines with an outer AND",
+      nested["table"].iloc[0, 0] <= got, f"{nested['table'].iloc[0,0]} <= {got}")
+
+print("\n5i. Cross-currency guard")
+# Where an FX-translated twin exists, the query is corrected to it.
+guarded = data_access.run_query("business_ledger", group_by=["Cashflow Type"],
+                                measures=[{"column": "Amount (Local)", "aggregation": "sum"}])
+corrections = guarded["provenance"]["currency_corrections"]
+check("local amount swapped for the FX-translated column",
+      guarded["measure_columns"] == ["Amount (Display)"],
+      str(guarded["measure_columns"]))
+check("the correction is reported, not silent", bool(corrections),
+      corrections[0][:100] if corrections else "no note")
+
+# Grouping BY currency makes each group single-currency, so nothing changes.
+by_ccy = data_access.run_query("business_ledger", group_by=["CCY (Local)"],
+                               measures=[{"column": "Amount (Local)", "aggregation": "sum"}])
+check("grouping by currency is left alone",
+      by_ccy["measure_columns"] == ["Amount (Local)"]
+      and not by_ccy["provenance"]["currency_corrections"],
+      str(by_ccy["measure_columns"]))
+
+# Filtering to a single currency is equally valid.
+single = data_access.run_query(
+    "business_ledger",
+    filters=[{"column": "CCY (Local)", "operator": "eq", "value": "SGD"}],
+    measures=[{"column": "Amount (Local)", "aggregation": "sum"}])
+check("filtering to one currency is left alone",
+      not single["provenance"]["currency_corrections"])
+
+# max picks an existing row rather than combining rows, so it stays valid.
+extreme = data_access.run_query("business_ledger", group_by=["Cashflow Type"],
+                                measures=[{"column": "Amount (Local)", "aggregation": "max"}])
+check("max is not treated as additive",
+      extreme["measure_columns"] == ["Amount (Local)"],
+      str(extreme["measure_columns"]))
+
+# Where no FX-translated twin exists the query must be refused, not fudged.
+# This sample carries no display amount on the transfer view - the exact gap
+# recorded as Priority 2b in DATA_REQUIREMENTS.md.
+try:
+    data_access.run_query("nostro_transfer", group_by=["Sending Strategy"],
+                          measures=[{"column": "Value Amount", "aggregation": "sum"}])
+    check("refuses when no FX-translated column exists", False, "no error raised")
+except data_access.QueryError as exc:
+    check("refuses when no FX-translated column exists",
+          "cannot be combined" in str(exc), str(exc)[:90])
 
 print("\n6. Error handling")
 for label, kwargs in [

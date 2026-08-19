@@ -325,13 +325,20 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
 
     narrative = _narrative(provider, session, interp, display_table, result["provenance"])
 
+    # A correction the engine made to keep the arithmetic valid is a limitation
+    # the reader must see, not a footnote in the provenance block.
+    limitations = list(interp["limitations"])
+    for note in result["provenance"].get("currency_corrections") or []:
+        if note not in limitations:
+            limitations.insert(0, note)
+
     session.last_result = result
     session.report = {
         "title": title,
         "user_query": session.user_query,
         "understood": interp["understood"],
         "narrative": narrative,
-        "limitations": interp["limitations"],
+        "limitations": limitations,
         "dependencies": interp["dependencies"],
         "chart_path": chart["chart_path"],
         "chart_type": chart["chart_type"],

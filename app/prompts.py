@@ -27,7 +27,8 @@ Return a JSON object with exactly these keys:
   "query": {
     "view": "<one of: nostro_transfer | client | business_ledger>",
     "mode": "<aggregate | list | distribution>",
-    "filters": [{"column": "<exact column name>", "operator": "<eq|ne|gt|gte|lt|lte|in|not_in|contains|is_null|not_null>", "value": <string, number or list>}],
+    "filters": [{"column": "<exact column name>", "operator": "<eq|ne|gt|gte|lt|lte|in|not_in|contains|is_null|not_null>", "value": <string, number or list>},
+                {"any": [ {...}, {...} ]}],
 
     // aggregate mode only:
     "group_by": ["<exact column name>"],
@@ -132,6 +133,18 @@ Rules for the query:
 - If the user's timeframe matches the value date already in effect, apply no date
   filter, and note in "limitations" which date the view is scoped to.
 - Filter values for enum-like columns must come from the listed allowed values.
+
+- FILTERS ARE COMBINED WITH "AND" BY DEFAULT. Entries in the top-level "filters"
+  list must ALL hold. So when the user says OR - "failed or rejected",
+  "USD or EUR", "pending or awaiting approval" - you MUST wrap those conditions
+  in an {"any": [...]} group, or you will answer the intersection instead of the
+  union. That is a silently wrong answer: asked for transfers that failed or were
+  rejected, the intersection returned 3 records when the true answer was 199.
+    Two values in ONE column        -> {"column":"Currency","operator":"in","value":["USD","EUR"]}
+    Conditions across TWO columns   -> {"any":[{"column":"Transfer Status","operator":"eq","value":"FAILED"},
+                                               {"column":"Message Status","operator":"eq","value":"..._REJECTED"}]}
+  Read the question for "or", "either", "as well as", and for two conditions that
+  cannot both be true at once - if they could never co-occur, you meant "any".
 - Prefer a display-currency measure when comparing across currencies, because
   local-currency amounts are not additive across different currencies.
 - CRITICAL - the Nostro Transfer View has NO display-currency column: its
@@ -211,6 +224,12 @@ WORKED EXAMPLES - match the shape of these.
 "How many transfers failed?"
   mode: "aggregate", view: "nostro_transfer",
   filters: [{"column":"Transfer Status","operator":"eq","value":"FAILED"}],
+  measures: [{"aggregation":"count"}], chart_type: "table"
+
+"How many transfers failed OR were rejected?"  <- note the "any" group
+  mode: "aggregate", view: "nostro_transfer",
+  filters: [{"any":[{"column":"Transfer Status","operator":"eq","value":"FAILED"},
+                    {"column":"Message Status","operator":"contains","value":"REJECTED"}]}],
   measures: [{"aggregation":"count"}], chart_type: "table"
 
 "Statistical analysis of flow values - mean, median, quantiles, +/-3 sigma"

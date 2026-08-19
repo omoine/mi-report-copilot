@@ -63,6 +63,43 @@ GLYPH_ALIASES = {
 }
 _ALIAS_LOOKUP = {alias: glyph for glyph, aliases in GLYPH_ALIASES.items() for alias in aliases}
 
+# Which column states the currency of each row, per view. Amounts denominated in
+# that currency cannot be added together across different values of it.
+CURRENCY_COLUMN = {
+    "nostro_transfer": "Currency",
+    "client": "Currency",
+    "business_ledger": "CCY (Local)",
+}
+
+# Local-currency amount columns and their FX-translated equivalent. Aggregating
+# a local column across more than one currency is adding unlike units; where a
+# display equivalent exists the query is switched to it, and where none exists
+# the query is refused.
+DISPLAY_EQUIVALENT = {
+    "nostro_transfer": {
+        "Value Amount": "Value Amount (Display)",
+    },
+    "client": {
+        "Start of Day Balance (Local)": "Start of Day Balance (Display)",
+        "Credits (Local)": "Credits (Display)",
+        "Debits (Local)": "Debits (Display)",
+        "Calculated Balance (Local)": "Calculated Balance (Display)",
+        "Swing (Local)": "Swing (Display)",
+        # No display twin exists for these two in the source data.
+        "EOD Balance (Local)": None,
+        "Difference (Local)": None,
+    },
+    "business_ledger": {
+        "Amount (Local)": "Amount (Display)",
+    },
+}
+
+# Aggregations that add values together. A minimum or a maximum picks an
+# existing row rather than combining rows, so it stays valid across currencies.
+ADDITIVE_AGGREGATIONS = {"sum", "mean", "median", "std", "var",
+                         "p25", "p50", "p75", "p90", "p95", "p99"}
+
+
 # Column carrying the primary monetary measure for each view, used when the
 # caller asks to aggregate but does not name a measure.
 DEFAULT_MEASURE = {
@@ -256,7 +293,29 @@ def _normalise_glyph_value(value: Any, series: pd.Series) -> Any:
     )
 
 
-def _apply_filter(df: pd.DataFrame, spec: dict[str, Any]) -> pd.DataFrame:
+def _filter_mask(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
+    """Build a boolean mask for one filter, or for a nested any/all group.
+
+    Masks rather than successive slicing, because "failed OR rejected" cannot be
+    expressed by filtering twice - and answering the intersection instead is a
+    silent, badly wrong answer rather than an error.
+    """
+    if "any" in spec or "all" in spec:
+        key = "any" if "any" in spec else "all"
+        parts = spec.get(key) or []
+        if not parts:
+            return pd.Series(True, index=df.index)
+        masks = [_filter_mask(df, p) for p in parts]
+        combined = masks[0]
+        for mask in masks[1:]:
+            combined = (combined | mask) if key == "any" else (combined & mask)
+        return ~combined if spec.get("negate") else combined
+
+    mask = _single_mask(df, spec)
+    return ~mask if spec.get("negate") else mask
+
+
+def _single_mask(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     col, op = spec.get("column"), (spec.get("operator") or "eq").lower()
     value = spec.get("value")
     if col not in df.columns:
@@ -269,17 +328,17 @@ def _apply_filter(df: pd.DataFrame, spec: dict[str, Any]) -> pd.DataFrame:
         value = _normalise_glyph_value(value, series)
     if op in {"in", "not_in"}:
         values = value if isinstance(value, list) else [value]
-        values = [str(v) for v in values]
-        mask = series.astype(str).isin(values)
-        return df[~mask if op == "not_in" else mask]
+        values = {str(v).strip().casefold() for v in values}
+        mask = series.astype(str).str.strip().str.casefold().isin(values)
+        return ~mask if op == "not_in" else mask
 
     if op == "contains":
-        return df[series.astype(str).str.contains(str(value), case=False, na=False)]
+        return series.astype(str).str.contains(str(value), case=False, na=False)
 
     if op == "is_null":
-        return df[series.isna()]
+        return series.isna()
     if op == "not_null":
-        return df[series.notna()]
+        return series.notna()
 
     target = _coerce_comparable(value, series)
     ops = {
@@ -295,8 +354,8 @@ def _apply_filter(df: pd.DataFrame, spec: dict[str, Any]) -> pd.DataFrame:
     # Text columns compared with eq/ne should ignore case and padding.
     if op in {"eq", "ne"} and isinstance(target, str):
         mask = series.astype(str).str.strip().str.casefold() == target.strip().casefold()
-        return df[~mask if op == "ne" else mask]
-    return df[ops[op](series)]
+        return ~mask if op == "ne" else mask
+    return ops[op](series)
 
 
 AGGREGATIONS = {"sum", "mean", "count", "min", "max", "median", "std", "var",
@@ -454,6 +513,62 @@ def apply_derived(df: pd.DataFrame, specs: list[dict[str, Any]], view: str) -> t
     return df, added
 
 
+def guard_currency(view: str, df: pd.DataFrame, measures: list[dict[str, str]],
+                   group_by: list[str]) -> tuple[list[dict[str, str]], list[str]]:
+    """Stop local-currency amounts being added together across currencies.
+
+    Adding 1 JPY to 1 GBP produces a number that means nothing, and a caveat
+    saying so does not prevent a reader acting on it - so the query is corrected
+    to the FX-translated column, or refused when no such column exists.
+
+    Grouping by the currency column makes each group single-currency, so local
+    amounts stay valid and nothing is changed.
+    """
+    ccy_col = CURRENCY_COLUMN.get(view)
+    if not ccy_col or ccy_col not in df.columns:
+        return measures, []
+    # Grouping by currency means every group holds one currency.
+    if any(g == ccy_col for g in group_by or []):
+        return measures, []
+    if df[ccy_col].nunique(dropna=True) <= 1:
+        return measures, []
+
+    equivalents = DISPLAY_EQUIVALENT.get(view, {})
+    corrected: list[dict[str, str]] = []
+    notes: list[str] = []
+    spanning = df[ccy_col].nunique(dropna=True)
+
+    for measure in measures:
+        column = measure.get("column")
+        agg = (measure.get("aggregation") or "sum").lower()
+        if column not in equivalents or agg not in ADDITIVE_AGGREGATIONS:
+            corrected.append(measure)
+            continue
+
+        display = equivalents[column]
+        if display and display in df.columns:
+            swapped = dict(measure)
+            swapped["column"] = display
+            swapped["label"] = display
+            corrected.append(swapped)
+            notes.append(
+                f"'{column}' is held in each row's own currency and this result "
+                f"spans {spanning} currencies, so adding it would combine unlike "
+                f"units. '{display}' was used instead, which is FX-translated to a "
+                "single currency."
+            )
+        else:
+            raise QueryError(
+                f"'{column}' is denominated in each row's own currency and this "
+                f"query spans {spanning} currencies, so the values cannot be "
+                f"combined - the total would add unlike units. Either group by "
+                f"'{ccy_col}' so each figure covers one currency, filter to a "
+                f"single currency, or use an FX-translated column. "
+                f"'{column}' has no FX-translated equivalent in this data."
+            )
+    return corrected, notes
+
+
 def _require_column(df: pd.DataFrame, col: str, role: str, view: str) -> None:
     if col not in df.columns:
         raise QueryError(
@@ -568,8 +683,11 @@ def run_query(
         df, derived_columns = apply_derived(df, derived, view)
 
     filters = filters or []
-    for spec in filters:
-        df = _apply_filter(df, spec)
+    if filters:
+        mask = pd.Series(True, index=df.index)
+        for spec in filters:
+            mask &= _filter_mask(df, spec)
+        df = df[mask]
     rows_after_filters = len(df)
 
     mode = (mode or "aggregate").lower()
@@ -587,6 +705,7 @@ def run_query(
     label_columns: list[str] = []
     measure_columns: list[str] = []
     measures_note: str | None = None
+    currency_notes: list[str] = []
 
     raw_values: pd.DataFrame | None = None
 
@@ -601,12 +720,17 @@ def run_query(
                 f"Available numeric columns: "
                 f"{', '.join(c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]))}."
             )
-        target = resolved_measures[0]["column"]
-        df = _as_numeric(df, target)
-
         group_by = [g for g in (group_by or []) if g]
         for col in group_by:
             _require_column(df, col, "a grouping", view)
+
+        # A distribution mixes currencies just as an aggregation does: the
+        # spread of "amount" across JPY and GBP rows describes the exchange
+        # rate more than the business.
+        resolved_measures, currency_notes = guard_currency(
+            view, df, [{**resolved_measures[0], "aggregation": "sum"}], group_by)
+        target = resolved_measures[0]["column"]
+        df = _as_numeric(df, target)
 
         if group_by:
             # One distribution per group, compared side by side.
@@ -662,6 +786,9 @@ def run_query(
         for col in group_by:
             _require_column(df, col, "a grouping", view)
 
+        resolved_measures, currency_notes = guard_currency(
+            view, df, resolved_measures, group_by)
+
         if time_bucket:
             df, bucket_label = _apply_time_bucket(df, time_bucket, view)
             group_by = [bucket_label] + group_by
@@ -670,7 +797,9 @@ def run_query(
             if m["aggregation"] != "count":
                 df = _as_numeric(df, m["column"])
 
-        if df.empty:
+        # With no rows and no grouping the honest answer is still a number -
+        # "0 transfers failed" is a finding, an empty table is a non-answer.
+        if df.empty and group_by:
             result = pd.DataFrame()
         elif group_by:
             frames = []
@@ -722,7 +851,26 @@ def run_query(
                     measure_columns.append(share_name)
             if add_cumulative and primary_measure:
                 cum_name = f"Cumulative {primary_measure}"
-                result[cum_name] = result[primary_measure].cumsum()
+                # A running total must not run across the dimensions the table
+                # is split by. Summed down a currency-split column it would add
+                # JPY to GBP - each grouped figure is valid on its own, and the
+                # cumulative silently combines them.
+                bucket_label = None
+                if time_bucket:
+                    gran = str(time_bucket.get("granularity") or "hour").lower()
+                    bucket_label = f"{time_bucket.get('column')} ({gran})"
+                partition = [c for c in label_columns if c != bucket_label]
+                if partition:
+                    result[cum_name] = (result.groupby(partition, sort=False)
+                                        [primary_measure].cumsum())
+                    currency_notes.append(
+                        "The running total accumulates within each "
+                        + " and ".join(partition)
+                        + ", not across them - a total spanning different "
+                        "groups would combine values that are not comparable."
+                    )
+                else:
+                    result[cum_name] = result[primary_measure].cumsum()
                 measure_columns.append(cum_name)
         else:
             row = {}
@@ -762,6 +910,7 @@ def run_query(
             "limit": limit,
             "join": join_info,
             "derived": derived_columns,
+            "currency_corrections": currency_notes,
             # Kept for existing readers of the provenance block.
             "measure": primary["column"] if primary else None,
             "aggregation": primary["aggregation"] if primary else None,
