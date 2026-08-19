@@ -1497,6 +1497,7 @@ def run_query(
             # reads as one row per sub branch with a DR and a CR column, which
             # is what a comparison should look like.
             pivoted = False
+            pivot_series: list[str] = []
             if (len(group_by) == 2 and len(measure_columns) == 1
                     and result[group_by[1]].nunique() <= 4):
                 wide = result.pivot(index=group_by[0], columns=group_by[1],
@@ -1506,6 +1507,7 @@ def run_query(
                 measure_columns = [c for c in result.columns if c != group_by[0]]
                 label_columns = [group_by[0]]
                 pivoted = True
+                pivot_series = list(measure_columns)
 
             if rate:
                 result, rate_col = apply_rate(df, result, group_by, rate)
@@ -1514,8 +1516,21 @@ def run_query(
                     sort_by = rate_col
 
             # Sort by the named column if given, else the first measure.
-            order_col = sort_by if sort_by in result.columns else measure_columns[0]
-            result = result.sort_values(order_col, ascending=not sort_desc).reset_index(drop=True)
+            # A time series is the exception: chronology IS the axis. Ordering
+            # it by size scrambles the chart into meaningless zig-zags and,
+            # worse, makes the running total below accumulate out of order, so
+            # the cumulative line describes nothing at all.
+            bucket_col = None
+            if time_bucket:
+                _gran = str(time_bucket.get("granularity") or "hour").lower()
+                bucket_col = f"{time_bucket.get('column')} ({_gran})"
+            if sort_by and sort_by in result.columns:
+                order_col, ascending = sort_by, not sort_desc
+            elif bucket_col and bucket_col in result.columns:
+                order_col, ascending = bucket_col, True
+            else:
+                order_col, ascending = measure_columns[0], not sort_desc
+            result = result.sort_values(order_col, ascending=ascending).reset_index(drop=True)
             if limit:
                 result = result.head(limit)
             else:
@@ -1589,7 +1604,6 @@ def run_query(
                 if share_source == "__share_base__":
                     result = result.drop(columns="__share_base__")
             if add_cumulative and primary_measure:
-                cum_name = f"Cumulative {primary_measure}"
                 # A running total must not run across the dimensions the table
                 # is split by. Summed down a currency-split column it would add
                 # JPY to GBP - each grouped figure is valid on its own, and the
@@ -1599,9 +1613,14 @@ def run_query(
                     gran = str(time_bucket.get("granularity") or "hour").lower()
                     bucket_label = f"{time_bucket.get('column')} ({gran})"
                 partition = [c for c in label_columns if c != bucket_label]
+                # After a pivot each series is its own column, so accumulating
+                # only the first would produce a lone "Cumulative JPY" beside a
+                # USD line - a legend entry that answers a question nobody asked.
+                targets = pivot_series if pivoted and pivot_series else [primary_measure]
                 if partition:
-                    result[cum_name] = (result.groupby(partition, sort=False)
-                                        [primary_measure].cumsum())
+                    for target in targets:
+                        result[f"Cumulative {target}"] = (
+                            result.groupby(partition, sort=False)[target].cumsum())
                     currency_notes.append(
                         "The running total accumulates within each "
                         + " and ".join(partition)
@@ -1609,8 +1628,9 @@ def run_query(
                         "groups would combine values that are not comparable."
                     )
                 else:
-                    result[cum_name] = result[primary_measure].cumsum()
-                measure_columns.append(cum_name)
+                    for target in targets:
+                        result[f"Cumulative {target}"] = result[target].cumsum()
+                measure_columns.extend(f"Cumulative {t}" for t in targets)
 
             # A time series without a baseline cannot answer "is this normal".
             # Added last so the columns it introduces are never mistaken for

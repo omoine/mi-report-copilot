@@ -201,6 +201,20 @@ def build_chart(
         return {"chart_path": None, "chart_type": "table",
                 "notes": [f"Column '{value_col}' is not numeric, so the result is shown as a table."]}
     measures = numeric_measures
+
+    # Different units cannot share an axis. A percentage drawn beside figures in
+    # billions is a flat line on zero, which reads as "no data" rather than
+    # "different scale".
+    absolute = [m for m in measures if "%" not in m]
+    if absolute and len(absolute) < len(measures):
+        dropped = [m for m in measures if m not in absolute]
+        notes.append(
+            f"{', '.join(dropped)} "
+            f"{'is a percentage' if len(dropped) == 1 else 'are percentages'} and "
+            "cannot share an axis with the amounts, so "
+            f"{'it is' if len(dropped) == 1 else 'they are'} in the table only."
+        )
+        measures = absolute
     value_col = measures[0]
 
     # A time series must never be folded into an "Other" bucket - the x axis is
@@ -222,13 +236,32 @@ def build_chart(
     # More than one measure is a comparison. Over time that is lines: ninety-nine
     # intervals of grouped bars is a picket fence, not a trend.
     if len(measures) > 1:
+        scale = {m: float(plot_df[m].abs().max() or 0) for m in measures}
+        largest = max(scale.values(), default=0.0)
+        # A series orders of magnitude below the largest draws as a flat line on
+        # the axis: the legend promises a curve the reader cannot find. Naming
+        # it and its size says more than drawing it does.
+        if largest > 0:
+            faint = [m for m in measures if scale[m] < largest * 0.005]
+            if faint and len(faint) < len(measures):
+                sizes = ", ".join(f"{m} peaks at {_human_number(scale[m])}" for m in faint)
+                notes.append(
+                    f"{sizes}, against {_human_number(largest)} for the largest "
+                    "series, so plotting it would be a flat line on the axis. "
+                    "It is in the table."
+                )
+                measures = [m for m in measures if m not in faint]
+        # Biggest first, so the colour budget goes to the series that are
+        # actually legible rather than to whichever happened to sort first.
+        measures = sorted(measures, key=lambda m: -scale.get(m, 0.0))
         if len(measures) > len(t["series_set"]):
             kept = len(t["series_set"])
             notes.append(
-                f"Only the first {kept} measures are charted; plotting more would need "
+                f"Only the {kept} largest measures are charted; plotting more would need "
                 "colours that cannot be told apart reliably. The table shows all of them."
             )
             measures = measures[:kept]
+        value_col = measures[0]
         if chart_type == "line":
             fig = _render_multi_line(plot_df, label_col, measures, title, t)
         else:
@@ -508,16 +541,29 @@ def _render_multi_line(df, label_col: str, measures: list[str], title: str,
     for text in legend.get_texts():
         text.set_color(t["ink_secondary"])
 
-    # Mark the peak of the series that actually carries the story - the largest
-    # one. On a queue that is Outstanding, not the arrivals feeding it.
-    leading = max(measures, key=lambda m: df[m].max() if df[m].notna().any() else 0)
-    primary = df[leading]
+    # Mark the extreme of the series that carries the story. Measured by
+    # distance from zero, not by maximum: an intraday position that dives to
+    # -45bn and tops out at +1.2bn is a story about the dive, and labelling the
+    # high point puts the caption where nobody is looking.
+    def _reach(name: str) -> float:
+        column = df[name]
+        return float(column.abs().max()) if column.notna().any() else 0.0
+
+    leading = max(measures, key=_reach)
+    primary = df[leading].reset_index(drop=True)
     if len(primary) > 2 and primary.notna().any():
-        top = int(primary.idxmax())
-        ax.annotate(f"peak {_human_number(primary.iloc[top])}",
-                    (top, primary.iloc[top]), textcoords="offset points",
-                    xytext=(0, 11), ha="center", fontsize=8.5,
-                    color=t["ink_secondary"])
+        at = int(primary.abs().idxmax())
+        value = primary.iloc[at]
+        caption = "peak" if value >= 0 else "low"
+        # An extreme sits at the edge of the axis by definition, so a label
+        # placed outside it lands on the tick marks. Put it back inside.
+        low, high = ax.get_ylim()
+        span = (high - low) or 1.0
+        inset = (value - low) / span < 0.15
+        ax.annotate(f"{caption} {_human_number(value)}",
+                    (at, value), textcoords="offset points",
+                    xytext=(0, 11 if value >= 0 or inset else -16), ha="center",
+                    fontsize=8.5, color=t["ink_secondary"])
     fig.tight_layout()
     return fig
 

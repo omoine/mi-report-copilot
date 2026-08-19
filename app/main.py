@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import assistant, data_access, llm_client, orchestrator, saved_views
+from . import assistant, data_access, data_model, llm_client, orchestrator, saved_views
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -203,6 +203,24 @@ def delete_view(view_id: str) -> dict:
     except saved_views.SavedViewError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"deleted": view_id}
+
+
+# --------------------------------------------------------------------------
+# Data model
+# --------------------------------------------------------------------------
+
+@app.get("/api/model")
+def model() -> dict:
+    """Every table, what it holds, and the columns that connect them."""
+    return data_model.overview()
+
+
+@app.get("/api/model/{table}")
+def model_table(table: str) -> dict:
+    try:
+        return data_model.table_detail(table)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 MEDIA_TYPES = {
