@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -1684,3 +1685,165 @@ def run_query(
 
 def sample_rows(view: str, n: int = 5) -> list[dict[str, Any]]:
     return get_frame(view).head(n).to_dict(orient="records")
+
+
+# --------------------------------------------------------------------------
+# Locating a value the user named
+# --------------------------------------------------------------------------
+#
+# The model is shown column NAMES but, beyond small enums, not their contents.
+# So a question that names a thing - "Russia", an account, a venue - gives it
+# nothing to match on, and it fails in one of two unrecoverable ways: it filters
+# the nearest plausible column ("Counterparty is Russia" matches no rows and is
+# reported as an empty view), or it declares the attribute missing when a
+# reference table holds it. Both look like answers, so the user cannot tell the
+# tool got it wrong.
+#
+# Indexing the values and telling the model where the ones it was asked about
+# actually live turns a guess into a lookup.
+
+# Columns with more distinct values than this are identifiers or free text; a
+# question naming one is still worth resolving, but indexing every value of a
+# genuinely unbounded column would not pay for itself.
+VALUE_INDEX_MAX_DISTINCT = 3000
+
+# The enum cut-off used by schema_summary(): at or below this the model is
+# already shown the values, so repeating them as a hint would be noise.
+VALUE_VISIBLE_MAX_DISTINCT = 12
+
+# Words common enough in ordinary questions that matching them tells us nothing.
+VALUE_STOPWORDS = frozenset({
+    "none", "other", "all", "new", "open", "closed", "yes", "no", "true",
+    "false", "total", "value", "amount", "date", "time", "type", "name",
+    "status", "account", "client", "business", "ledger", "view", "data",
+    "local", "display", "group", "cash", "bank", "daily", "month", "day",
+})
+
+_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-/'\.]*")
+
+
+@lru_cache(maxsize=1)
+def _value_index() -> dict[str, dict[str, Any]]:
+    """Map every categorical value in the data to the columns that hold it."""
+    index: dict[str, dict[str, Any]] = {}
+
+    view_columns: set[str] = set()
+    for _view in VIEW_SHEETS:
+        view_columns.update(get_frame(_view).columns)
+
+    def add(value: Any, source: str, column: str, join_on: str | None,
+            visible: bool) -> None:
+        if not isinstance(value, str):
+            return
+        text = value.strip()
+        # Long strings are prose, not categories worth matching a question on.
+        if not text or len(text) > 60:
+            return
+        entry = index.setdefault(text.casefold(), {"value": text, "places": []})
+        # A reference table is only reachable in one hop when its key is a
+        # column the transaction data already has. country_master keys on
+        # "Country", which no transaction view holds, so it needs a country
+        # brought across first - saying so stops the model joining it directly.
+        place = {"source": source, "column": column, "join_on": join_on,
+                 "visible": visible,
+                 "direct": join_on is None or join_on in view_columns}
+        if place not in entry["places"]:
+            entry["places"].append(place)
+
+    for view in VIEW_SHEETS:
+        df = get_frame(view)
+        for col in df.columns:
+            series = df[col]
+            if not pd.api.types.is_string_dtype(series):
+                continue
+            distinct = series.dropna().unique()
+            if len(distinct) > VALUE_INDEX_MAX_DISTINCT:
+                continue
+            visible = len(distinct) <= VALUE_VISIBLE_MAX_DISTINCT
+            for value in distinct:
+                add(value, view, col, None, visible)
+
+    for name, df in _reference_frames().items():
+        if df.empty:
+            continue
+        key_column = df.columns[0]
+        for col in df.columns:
+            distinct = pd.Series(df[col].dropna().unique())
+            if len(distinct) > VALUE_INDEX_MAX_DISTINCT:
+                continue
+            for value in distinct:
+                # A reference value is never visible to the model: the prompt
+                # lists these tables by column name only.
+                add(value, name, col, key_column, False)
+
+    return index
+
+
+def _token_matches(key: str, tokens: set[str], codes: set[str],
+                   bigrams: set[str], question: str) -> bool:
+    """Whether an indexed value was named in the question.
+
+    Prefix matching in both directions, because a question says "Russian" and
+    the data says "Russia" - an exact match would miss every adjective.
+
+    Short values are codes, and codes collide with ordinary words: "BY" is
+    Belarus, "A" is a credit rating, and both appear in almost any sentence.
+    They only count when the question wrote them as codes.
+    """
+    if " " in key:
+        # People name things partly: "Zephyr Clearing" for a venue stored as
+        # "Zephyr Clearing Hong Kong". Requiring the whole value would miss
+        # every abbreviated reference, so two consecutive words are enough.
+        return key in question or any(pair in key for pair in bigrams)
+    if len(key) <= 3:
+        return key.upper() in codes
+    if key in tokens:
+        return True
+    if len(key) < 5:
+        return False
+    return any(token.startswith(key) or (len(token) >= 5 and key.startswith(token))
+               for token in tokens)
+
+
+def locate_values(question: str, limit: int = 8) -> list[dict[str, Any]]:
+    """Values named in the question, and the columns that actually hold them.
+
+    Only values the model cannot already see are returned: small enums are
+    listed in the schema it is given, so repeating them would bury the ones
+    that matter under things it already knows.
+    """
+    if not question or not question.strip():
+        return []
+    index = _value_index()
+    lowered = question.casefold()
+    raw_tokens = _TOKEN_RE.findall(question)
+    tokens = {t.casefold() for t in raw_tokens}
+    codes = {t for t in raw_tokens if t.isupper()}
+    folded = [t.casefold() for t in raw_tokens]
+    bigrams = {f"{a} {b}" for a, b in zip(folded, folded[1:])}
+
+    hits: list[dict[str, Any]] = []
+    for key, entry in index.items():
+        if key in VALUE_STOPWORDS:
+            continue
+        if not _token_matches(key, tokens, codes, bigrams, lowered):
+            continue
+        hidden = [p for p in entry["places"] if not p["visible"]]
+        if not hidden:
+            continue
+        # Only offer places the query engine can actually get to. A reference
+        # table's own key is never brought across by a join, and a table whose
+        # key no transaction view carries cannot be joined in one hop - naming
+        # either sends the model after a column that will not exist.
+        reachable = [p for p in hidden if p["direct"]]
+        hits.append({
+            "value": entry["value"],
+            "places": reachable,
+            "unreachable": [p for p in hidden if not p["direct"]] if not reachable else [],
+            "in_transaction_view": any(p["join_on"] is None
+                                       for p in entry["places"]),
+        })
+
+    # Longer matches first: they are the more specific thing the user named.
+    hits.sort(key=lambda h: (-len(h["value"]), h["value"]))
+    return hits[:limit]

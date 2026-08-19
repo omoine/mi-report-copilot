@@ -575,8 +575,58 @@ Each has a single key column, so "on" only needs the column on YOUR side:
 """.strip()
 
 
-def interpretation_system_prompt() -> str:
-    return f"{_INTERPRET_RULES}\n\n{_context_block()}"
+def _resolved_values_block(question: str) -> str:
+    """Tell the model where the things named in THIS question actually live.
+
+    Without it the model sees column names and no contents, so a question that
+    names something fails in one of two ways that both look like an answer: it
+    filters the nearest plausible column - "Counterparty is Russia" matches no
+    rows and is presented as an empty view - or it reports the attribute as
+    absent when a reference table holds it.
+    """
+    hits = data_access.locate_values(question)
+    if not hits:
+        return ""
+
+    lines = []
+    for hit in hits:
+        value = hit["value"]
+        if hit["in_transaction_view"]:
+            lines.append(f'- "{value}" is a value of:')
+        else:
+            lines.append(
+                f'- "{value}" is NOT a value of any column in the transaction '
+                "views. Filtering one directly will match nothing. It is held by:")
+        if not hit["places"]:
+            where = ", ".join(f'{p["source"]}."{p["column"]}"'
+                              for p in hit["unreachable"])
+            lines.append(f"    present in {where}, but no transaction view "
+                         "carries the key needed to join it - report this as "
+                         "unavailable rather than filtering something else")
+        for place in hit["places"]:
+            table, column = place["source"], place["column"]
+            if place["join_on"] is None:
+                lines.append(f'    {table}."{column}"'
+                             " - already in the view, filter it directly")
+            elif place["direct"]:
+                lines.append(f'    {table}."{column}"'
+                             f' - join {table} on "{place["join_on"]}"')
+            else:
+                lines.append(f'    {table}."{column}" - only after '
+                             f'"{place["join_on"]}" has been brought across '
+                             "by an earlier join")
+
+    header = (
+        "VALUES NAMED IN THIS QUESTION, resolved against the actual data.\n"
+        "Use these columns. Do not guess which column holds a value, and do\n"
+        "not report a value as unavailable when it is listed here:")
+    return header + "\n" + "\n".join(lines)
+
+
+def interpretation_system_prompt(question: str = "") -> str:
+    resolved = _resolved_values_block(question)
+    prompt = f"{_INTERPRET_RULES}\n\n{_context_block()}"
+    return f"{prompt}\n\n{resolved}" if resolved else prompt
 
 
 def refine_system_prompt() -> str:

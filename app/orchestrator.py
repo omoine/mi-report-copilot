@@ -192,7 +192,7 @@ def interpret(session: Session, user_query: str, provider: llm_client.LLMProvide
 
     interpretation = _interpret_with_retry(
         provider,
-        prompts.interpretation_system_prompt(),
+        prompts.interpretation_system_prompt(session.user_query),
         [{"role": "user", "content": session.user_query}],
     )
 
