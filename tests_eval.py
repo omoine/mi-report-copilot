@@ -18,9 +18,14 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app import main
+from app import auth, main
 
 client = TestClient(main.app)
+
+# The application is behind a password, so the suite signs in the way a user
+# does. Testing against an unlocked app would leave the gate itself untested
+# and hide the day it starts rejecting everything.
+client.post("/api/login", json={"password": auth.password()})
 
 # (category, question, expectation)
 #   build   - should produce a useful report

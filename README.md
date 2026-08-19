@@ -93,6 +93,25 @@ Then:
 Open http://localhost:8099. The status badge shows the provider and model in use,
 or tells you exactly what is missing.
 
+## Access
+
+The application opens on a password prompt and nothing behind it is reachable
+until you sign in. The gate is enforced on the server, not just in the browser:
+every `/api` route except `/api/ping`, `/api/session` and `/api/login` refuses a
+request without a valid session cookie, so hiding the interface is not the only
+thing standing between a stranger and the API key this tool spends.
+
+The default password is `Studio2026`, set in `app/auth.py`. **That default is in
+a public repository and is therefore public knowledge.** Any instance you
+actually want closed must set its own:
+
+- `APP_PASSWORD` — the password that unlocks the application.
+- `APP_SECRET` — signs the session cookie. When unset a new one is generated at
+  startup, so restarting signs everyone out.
+
+The Render blueprint asks for `APP_PASSWORD` once and generates `APP_SECRET`,
+so neither is ever committed.
+
 ## Tests
 
 | Command | Covers | Needs a key |

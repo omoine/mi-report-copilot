@@ -19,7 +19,7 @@ os.environ.setdefault(
 
 from fastapi.testclient import TestClient
 
-from app import llm_client, main, md_export, orchestrator
+from app import auth, llm_client, main, md_export, orchestrator
 
 failures: list[str] = []
 
@@ -74,6 +74,11 @@ class StubProvider:
 stub = StubProvider()
 main._provider = stub  # inject before any request builds a real client
 client = TestClient(main.app)
+
+# The application is behind a password, so the suite signs in the way a user
+# does. Testing against an unlocked app would leave the gate itself untested
+# and hide the day it starts rejecting everything.
+client.post("/api/login", json={"password": auth.password()})
 
 print("\n1. Health and schema")
 h = client.get("/api/health").json()
@@ -414,6 +419,52 @@ r = client.post("/api/confirm", json={"session_id": sid2})
 check("report still built without narrative", r.status_code == 200)
 check("figures still present", len(r.json()["table"]["rows"]) > 0)
 check("fallback commentary shown", "could not be generated" in r.json()["narrative"].lower())
+
+print("\n9. The access gate")
+
+# A separate client that has never signed in. The point of the gate is that
+# the API refuses it, not that the interface hides itself - anyone can skip
+# the interface.
+locked = TestClient(main.app)
+
+for path in ("/api/health", "/api/schema", "/api/views", "/api/model"):
+    r = locked.get(path)
+    check(f"GET {path} refused when locked", r.status_code == 401, f"got {r.status_code}")
+
+r = locked.post("/api/query", json={"query": "total nostro transfer value by currency"})
+check("POST /api/query refused when locked", r.status_code == 401, f"got {r.status_code}")
+r = locked.post("/api/chat", json={"message": "hello", "history": []})
+check("POST /api/chat refused when locked", r.status_code == 401, f"got {r.status_code}")
+check("downloads refused when locked",
+      locked.get("/api/download/anything.pdf").status_code == 401)
+
+check("ping stays open for uptime checks", locked.get("/api/ping").status_code == 200)
+check("session state is readable when locked",
+      locked.get("/api/session").json()["authenticated"] is False)
+
+r = locked.post("/api/login", json={"password": "wrong"})
+check("wrong password rejected", r.status_code == 401, f"got {r.status_code}")
+check("no cookie issued on a wrong password", auth.COOKIE_NAME not in locked.cookies)
+check("still locked after a wrong password", locked.get("/api/views").status_code == 401)
+
+r = locked.post("/api/login", json={"password": auth.password()})
+check("correct password accepted", r.status_code == 200, f"got {r.status_code}")
+check("cookie issued", auth.COOKIE_NAME in locked.cookies)
+check("unlocked client can read views", locked.get("/api/views").status_code == 200)
+
+check("a forged cookie is refused", not auth.valid("9999999999.deadbeef"))
+check("an expired but correctly signed cookie is refused",
+      not auth.valid("1." + auth._sign("1")))
+
+locked.post("/api/logout")
+check("logout re-locks", locked.get("/api/views").status_code == 401)
+
+# The interface must ship locked. If it rendered first and hid itself after,
+# everything would be on screen for the moment before the script ran.
+index_html = (static_dir / "index.html").read_text(encoding="utf-8")
+check("the page ships locked", chr(60) + chr(98) + 'ody class="locked"' in index_html)
+check("locked hides everything but the gate",
+      "body.locked > *:not(.gate)" in css)
 
 print("\n" + "-" * 55)
 if failures:

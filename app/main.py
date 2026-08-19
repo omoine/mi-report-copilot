@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import assistant, data_access, data_model, llm_client, orchestrator, saved_views
+from . import (assistant, auth, data_access, data_model, llm_client,
+               orchestrator, saved_views)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -17,6 +18,65 @@ STATIC_DIR = BASE_DIR / "static"
 app = FastAPI(title="MI Report Copilot (POC)", version="0.1.0")
 
 _provider: llm_client.LLMProvider | None = None
+
+# --------------------------------------------------------------------------
+# Access
+# --------------------------------------------------------------------------
+
+# Everything else under /api needs an unlocked session. The static files stay
+# open because the sign-in screen is one of them, and none of them carry data:
+# every figure comes from an endpoint behind this gate.
+OPEN_ENDPOINTS = {"/api/ping", "/api/session", "/api/login", "/api/logout"}
+
+
+@app.middleware("http")
+async def require_access(request: Request, call_next):
+    path = request.url.path
+    if path.startswith("/api/") and path not in OPEN_ENDPOINTS:
+        if not auth.valid(request.cookies.get(auth.COOKIE_NAME)):
+            return JSONResponse(
+                {"detail": "Enter the access password to continue."},
+                status_code=401,
+            )
+    return await call_next(request)
+
+
+class LoginRequest(BaseModel):
+    password: str
+
+
+@app.get("/api/ping")
+def ping() -> dict:
+    """Open, so uptime checks do not need the password."""
+    return {"status": "ok"}
+
+
+@app.get("/api/session")
+def session_state(request: Request) -> dict:
+    return {"authenticated": auth.valid(request.cookies.get(auth.COOKIE_NAME))}
+
+
+@app.post("/api/login")
+def login(req: LoginRequest, request: Request, response: Response) -> dict:
+    if not auth.check_password(req.password):
+        raise HTTPException(status_code=401, detail="That password is not correct.")
+    # Behind a proxy the scheme on the request is http even when the browser
+    # spoke https, so the forwarded header decides whether the cookie may be
+    # marked secure - marking it secure on plain http would drop it silently.
+    forwarded = request.headers.get("x-forwarded-proto", request.url.scheme)
+    response.set_cookie(
+        auth.COOKIE_NAME, auth.make_token(),
+        httponly=True, samesite="lax",
+        secure=forwarded == "https",
+        max_age=auth.SESSION_HOURS * 3600,
+    )
+    return {"ok": True}
+
+
+@app.post("/api/logout")
+def logout(response: Response) -> dict:
+    response.delete_cookie(auth.COOKIE_NAME)
+    return {"ok": True}
 
 
 def get_provider() -> llm_client.LLMProvider:

@@ -791,3 +791,49 @@ tbody tr:hover td { background: rgba(161, 0, 255, .07); color: var(--text); }
 }
 .col-range { font-family: var(--font-mono); font-size: 11px; color: var(--text-body); }
 .col-range b { color: var(--text); }
+
+/* ── access gate ──────────────────────────────────────────────── */
+/* Locked is the shipped state: everything except the gate and the background
+   is out of the document until the script says this browser is signed in. */
+body.locked > *:not(.gate):not(.bg-orbs) { display: none !important; }
+body:not(.locked) .gate { display: none; }
+
+.gate {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.gate-card {
+  width: 100%; max-width: 380px;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 22px; padding: 32px 30px 28px;
+  backdrop-filter: blur(14px); box-shadow: var(--glow);
+}
+.gate-card h1 { font-size: 24px; font-weight: 700; line-height: 1.1; }
+.gate-card h1 em {
+  font-style: normal;
+  background: linear-gradient(90deg, #CC88FF 5%, #FF50C8 90%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.gate-sub { color: var(--text-body); font-size: 13px; margin-top: 8px; }
+.gate-label {
+  display: block; margin: 22px 0 7px;
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--text-faint);
+}
+#gatePassword {
+  width: 100%; padding: 12px 15px; border-radius: 12px;
+  background: rgba(0, 0, 0, .32); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font-body); font-size: 14px;
+  letter-spacing: .08em;
+}
+#gatePassword:focus { outline: none; border-color: rgba(161, 0, 255, .55); }
+.gate-error { color: #FFB4B4; font-size: 12.5px; min-height: 18px; margin-top: 9px; }
+#gateSubmit {
+  width: 100%; margin-top: 6px; padding: 12px 18px;
+  border: none; border-radius: 12px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase; color: #fff;
+  background: linear-gradient(135deg, var(--purple-600), var(--pink));
+}
+#gateSubmit:disabled { opacity: .55; cursor: default; }

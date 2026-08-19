@@ -8,12 +8,27 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
+<!-- Starts locked, so nothing behind the gate is on screen even for the moment
+     before the script has asked whether this browser is already signed in. -->
+<body class="locked">
 
 <div class="bg-orbs" aria-hidden="true">
   <div class="bg-orb orb-1"></div>
   <div class="bg-orb orb-2"></div>
   <div class="bg-orb orb-3"></div>
+</div>
+
+<div class="gate" id="gate">
+  <form class="gate-card" id="gateForm" autocomplete="off">
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="gate-sub">This workspace is password protected.</p>
+    <label class="gate-label" for="gatePassword">Access password</label>
+    <input type="password" id="gatePassword" name="password"
+           autocomplete="current-password" required autofocus>
+    <p class="gate-error" id="gateError" role="alert"></p>
+    <button type="submit" id="gateSubmit">Enter</button>
+  </form>
 </div>
 
 <header>
@@ -92,6 +107,7 @@
   <div id="modelDetail" class="model-detail" hidden></div>
 </section>
 
+<script src="/gate.js"></script>
 <script src="/app.js"></script>
 <script src="/model.js"></script>
 <script src="/assistant.js"></script>
