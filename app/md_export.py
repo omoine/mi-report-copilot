@@ -115,10 +115,24 @@ def _fmt_history(history: list[dict[str, str]]) -> str:
 
 def build_markdown(report: dict[str, Any], out_dir: Path, session_id: str,
                    stamp: dt.datetime | None = None) -> Path:
+    """Write the companion document to disk."""
     out_dir.mkdir(parents=True, exist_ok=True)
     # Shared with the PDF so the two files are named as a matching pair.
     stamp = stamp or dt.datetime.now()
     path = out_dir / f"mi_report_{session_id}_{stamp.strftime('%Y%m%d_%H%M%S')}.md"
+    path.write_text(render_markdown(report, stamp), encoding="utf-8")
+    return path
+
+
+def render_markdown(report: dict[str, Any], stamp: dt.datetime | None = None) -> str:
+    """The companion document as text.
+
+    Separated from writing it so the in-app assistant can be grounded in exactly
+    this string. If the assistant were given its own summary of the report, the
+    two could describe the same figures differently - here they cannot, because
+    they are the same document.
+    """
+    stamp = stamp or dt.datetime.now()
 
     prov = report.get("provenance", {})
     view = prov.get("view", "")
@@ -249,5 +263,4 @@ market rates, and they do not vary by date.
 - This is synthetic, non-production data. Do not present it as a real position.
 """
 
-    path.write_text(content, encoding="utf-8")
-    return path
+    return content

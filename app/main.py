@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import data_access, llm_client, orchestrator, saved_views
+from . import assistant, data_access, llm_client, orchestrator, saved_views
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -117,6 +117,25 @@ def export(req: SessionRequest) -> dict:
         return orchestrator.export(session)
     except orchestrator.OrchestratorError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+class ChatRequest(BaseModel):
+    session_id: str | None = None
+    message: str
+    history: list[dict] = []
+
+
+@app.post("/api/chat")
+def chat(req: ChatRequest) -> dict:
+    """The in-app assistant: design help before a report, explanation after."""
+    session = orchestrator.get_session(req.session_id)
+    try:
+        result = assistant.answer(session, req.message, req.history, get_provider())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except llm_client.LLMError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"session_id": session.id, **result}
 
 
 @app.post("/api/reset")

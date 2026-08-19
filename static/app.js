@@ -2,6 +2,12 @@
    Flow: ask -> confirm (with limitations shown) -> report -> refine -> export. */
 
 let sessionId = null;
+// Exposed so the assistant panel talks about the same session the
+// main flow is working in, rather than a separate one.
+Object.defineProperty(window, 'sessionId', {
+  get: () => sessionId,
+  set: (v) => { sessionId = v; },
+});
 let busy = false;
 
 const conversation = document.getElementById('conversation');

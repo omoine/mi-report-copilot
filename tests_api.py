@@ -19,7 +19,7 @@ os.environ.setdefault(
 
 from fastapi.testclient import TestClient
 
-from app import llm_client, main, orchestrator
+from app import llm_client, main, md_export, orchestrator
 
 failures: list[str] = []
 
@@ -236,6 +236,63 @@ check("deleted view is gone",
       "Eval test view" not in [v["name"] for v in client.get("/api/views").json()["views"]])
 r = client.delete(f"/api/views/{view_id}")
 check("deleting twice is a clean 404", r.status_code == 404)
+
+print("\n6d. In-app assistant")
+
+
+class ChatStub(StubProvider):
+    """Captures the system prompt so the grounding can be inspected."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.last_system = ""
+
+    def complete_text(self, system, messages):
+        self.last_system = system
+        return "The largest contributor is JPY.\nTRY: total transfer value by currency"
+
+
+chat_stub = ChatStub()
+main._provider = chat_stub
+
+# With a report on screen the assistant must be grounded in the export itself,
+# not in a separate summary that could describe the same figures differently.
+r = client.post("/api/chat", json={"session_id": sid, "message": "what is this?"})
+check("chat answers with a report open", r.status_code == 200, f"status {r.status_code}")
+body = r.json()
+check("mode is explain when a report exists", body.get("mode") == "explain", body.get("mode"))
+check("a suggested prompt is offered separately", body.get("suggestion") ==
+      "total transfer value by currency", str(body.get("suggestion")))
+check("the suggestion is stripped from the reply", "TRY:" not in body.get("reply", ""))
+
+session_obj = orchestrator.get_session(sid)
+exported = md_export.render_markdown({**session_obj.report, "history": session_obj.history})
+grounding = chat_stub.last_system
+
+check("the assistant is grounded in the export, verbatim",
+      exported[:400] in grounding,
+      f"export {len(exported):,} chars, prompt {len(grounding):,} chars")
+
+# Spot-check that the figures themselves travelled, not just the headings.
+figure_rows = [row[0] for row in ref["table"]["rows"][:3]]
+check("the figures the user sees are in the assistant's context",
+      all(str(v) in grounding for v in figure_rows), str(figure_rows))
+check("the stated limitations travelled too",
+      all(lim[:40] in grounding for lim in session_obj.report["limitations"][:2]))
+
+# Before anything is built it should be advising, not explaining.
+fresh = client.post("/api/chat", json={"message": "I want to see failed payments"})
+check("mode is design before a report exists",
+      fresh.json().get("mode") == "design", fresh.json().get("mode"))
+check("design mode is not grounded in a report",
+      "SUPPORTING DOCUMENT" not in chat_stub.last_system)
+check("design mode knows the refusals",
+      "different currencies" in chat_stub.last_system)
+
+r = client.post("/api/chat", json={"session_id": sid, "message": "   "})
+check("an empty question is rejected", r.status_code == 400)
+
+main._provider = stub  # restore for the checks that follow
 
 print("\n7. Guard rails")
 r = client.post("/api/export", json={"session_id": "nonexistent-session"})
