@@ -10,6 +10,7 @@ agrees. The model chooses the query; this module executes it deterministically.
 from __future__ import annotations
 
 import datetime as dt
+import inspect
 import os
 import uuid
 from pathlib import Path
@@ -208,10 +209,26 @@ def interpret(session: Session, user_query: str, provider: llm_client.LLMProvide
     }
 
 
+def compatible_query(query: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Drop specification keys this build of the engine does not understand.
+
+    A saved view is configuration that outlives the code that wrote it. One
+    saved by a newer build carries keys an older one has never heard of, and
+    passing them straight through raises a TypeError the user sees as a bare
+    500 with nothing to act on. Dropping them degrades the view instead, and
+    says which part was ignored.
+    """
+    accepted = set(inspect.signature(data_access.run_query).parameters)
+    clean = {k: v for k, v in query.items() if k in accepted}
+    dropped = sorted(k for k in query if k not in accepted)
+    return clean, dropped
+
+
 def _dry_run(query: dict[str, Any]) -> None:
     """Validate the query against the real data before asking for confirmation."""
+    clean, _ = compatible_query(query)
     try:
-        data_access.run_query(**query)
+        data_access.run_query(**clean)
     except data_access.QueryError as exc:
         raise OrchestratorError(f"That view cannot be built from this data: {exc}") from exc
 
@@ -365,8 +382,9 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
         raise OrchestratorError("There is nothing to build yet - ask for a view first.")
 
     interp = session.interpretation
+    clean, dropped = compatible_query(interp["query"])
     try:
-        result = data_access.run_query(**interp["query"])
+        result = data_access.run_query(**clean)
     except data_access.QueryError as exc:
         raise OrchestratorError(str(exc)) from exc
 
@@ -383,6 +401,11 @@ def build_report(session: Session, provider: llm_client.LLMProvider) -> dict[str
     # A correction the engine made to keep the arithmetic valid is a limitation
     # the reader must see, not a footnote in the provenance block.
     limitations = list(interp["limitations"])
+    if dropped:
+        limitations.insert(0, (
+            "Part of this saved view was written by a newer version of the "
+            f"tool and was ignored here: {', '.join(dropped)}. The rest ran "
+            "normally."))
     for note in result["provenance"].get("currency_corrections") or []:
         if note not in limitations:
             limitations.insert(0, note)

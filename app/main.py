@@ -183,6 +183,16 @@ def load_view(req: LoadViewRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except llm_client.LLMError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        # A saved view is stored configuration and can outlive the code that
+        # wrote it. Whatever goes wrong, the user should get a sentence they
+        # can act on rather than a bare 500.
+        raise HTTPException(
+            status_code=400,
+            detail=(f"That saved view could not be run: {type(exc).__name__}: "
+                    f"{exc}. It may have been saved by a different version of "
+                    "the tool - rebuilding and saving it again will fix it."),
+        ) from exc
     return {"session_id": session.id, **result}
 
 

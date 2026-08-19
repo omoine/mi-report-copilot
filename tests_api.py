@@ -230,6 +230,16 @@ if r.status_code == 200:
     check("reload returns figures", len(reloaded["table"]["rows"]) > 0)
     check("reload names the view", reloaded.get("loaded_view", {}).get("name") == "Eval test view")
 
+# A saved view is configuration that outlives the code that wrote it. One
+# carrying a key this build has never heard of must degrade, not 500.
+future = dict(orchestrator.saved_views.get_view(view_id))
+future["query"] = {**future["query"], "some_future_capability": {"x": 1}}
+clean, dropped = orchestrator.compatible_query(future["query"])
+check("an unknown specification key is dropped, not passed through",
+      "some_future_capability" in dropped and "some_future_capability" not in clean,
+      f"dropped {dropped}")
+check("the rest of the specification survives", clean.get("view") == future["query"]["view"])
+
 r = client.delete(f"/api/views/{view_id}")
 check("view deleted", r.status_code == 200)
 check("deleted view is gone",
