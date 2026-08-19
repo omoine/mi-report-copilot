@@ -451,7 +451,91 @@ def _render_for(result: dict[str, Any], interp: dict[str, Any], title: str,
     )
 
 
+_OPERATOR_WORDS = {
+    "eq": "is", "ne": "is not", "in": "in", "not_in": "not in",
+    "contains": "contains", "gt": "over", "gte": "at least",
+    "lt": "under", "lte": "at most",
+}
+_DATE_RANGE_OPS = {"gt", "gte", "lt", "lte"}
+
+
+def _looks_like_date(column: str) -> bool:
+    low = column.lower()
+    return "date" in low or "time" in low
+
+
+def _filter_clause(spec: dict[str, Any]) -> str | None:
+    """One filter rendered as a short phrase, or None if it is period scope."""
+    if "any" in spec or "all" in spec:
+        key = "any" if "any" in spec else "all"
+        joiner = " or " if key == "any" else " and "
+        parts = [c for c in (_filter_clause(p) for p in spec.get(key) or []) if c]
+        if not parts:
+            return None
+        text = joiner.join(parts)
+        if len(parts) > 1:
+            text = f"({text})"
+        return f"not {text}" if spec.get("negate") else text
+
+    column = str(spec.get("column") or "").strip()
+    if not column:
+        return None
+    operator = (spec.get("operator") or "eq").lower()
+
+    # A date range is period scope: it is already stated in the limitations and
+    # is the same on nearly every view, so repeating it in the heading would
+    # crowd out the part that actually distinguishes this view from the next.
+    if operator in _DATE_RANGE_OPS and _looks_like_date(column):
+        return None
+
+    if operator == "is_null":
+        return f"{column} is missing"
+    if operator == "not_null":
+        return f"{column} is present"
+
+    value = spec.get("value")
+    if isinstance(value, (list, tuple, set)):
+        items = [str(v) for v in value]
+        shown = ", ".join(items[:3])
+        if len(items) > 3:
+            shown += f" +{len(items) - 3} more"
+    elif isinstance(value, float) and value.is_integer():
+        shown = f"{int(value):,}"
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        shown = f"{value:,}"
+    else:
+        shown = str(value)
+
+    word = _OPERATOR_WORDS.get(operator, operator)
+    clause = f"{column} {word} {shown}"
+    return f"not ({clause})" if spec.get("negate") else clause
+
+
+def _filter_phrase(query: dict[str, Any], limit: int = 2) -> str:
+    """Name the filters that define the slice, for the report heading.
+
+    A heading built only from measure and grouping hides what the view is
+    filtered to: "Peak intraday position by CCY (Local)" reads identically
+    whether it covers every counterparty or only the Russian ones. A reader
+    who cannot see the scope in the title has to take the narrative's word
+    for it, and an exported view loses the scope entirely.
+    """
+    clauses = [c for c in (_filter_clause(f) for f in query.get("filters") or []) if c]
+    if not clauses:
+        return ""
+    shown = clauses[:limit]
+    if len(clauses) > limit:
+        shown.append(f"+{len(clauses) - limit} more filters")
+    return ", ".join(shown)
+
+
 def _title_for(interp: dict[str, Any]) -> str:
+    title = _base_title(interp)
+    phrase = _filter_phrase(interp["query"])
+    return f"{title} - {phrase}" if phrase else title
+
+
+def _base_title(interp: dict[str, Any]) -> str:
     query = interp["query"]
     view_name = data_access.VIEW_SHEETS[query["view"]].replace(" View", "")
 
