@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Venue reliability - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Count of records by Target Account Venue Location</h2>
+    <p class="showcase-desc">Failure and rejection rate by venue, as a proportion of what we send them. A rate, not a count - three failures in five beats ten in a thousand.</p>
+    <p class="showcase-ask"><span>Asked as</span> Which venues have the highest rate of failed or rejected transfers, relative to the total volume we send them?</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total count</div><div class="hero-value">848</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">104</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">34%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/venue-reliability-chart.png" alt="Count of records by Target Account Venue Location"></div>
+    <p class="hint">Failure rate % is a percentage and cannot share an axis with the amounts, so it is in the table only.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report identifies Zephyr Clearing in Hong Kong as having the highest failure rate of transfers, with a rate of 10.50% relative to the total volume of 76 transfers sent to them. Sablewood Settlement Bank, also in Hong Kong, follows with a failure rate of 9.30% out of 75 transfers. Notably, Hong Kong venues appear prominently in the top three positions for failure rates, indicating a potential area for further investigation. Operations should particularly focus on the processes involving Zephyr Clearing and Sablewood Settlement Bank to understand the reasons behind these higher failure rates.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Target Account Venue Location</th><th>count</th><th>Failure rate %</th><th>Matching</th><th>Of total</th></tr></thead><tbody><tr><td>Zephyr Clearing Hong Kong</td><td>76.00</td><td>10.50</td><td>8.00</td><td>76.00</td></tr><tr><td>Sablewood Settlement Bank Hong Kong</td><td>75.00</td><td>9.30</td><td>7.00</td><td>75.00</td></tr><tr><td>Dunlin Bank Hong Kong</td><td>74.00</td><td>8.10</td><td>6.00</td><td>74.00</td></tr><tr><td>Umberton Bank Dublin</td><td>88.00</td><td>8.00</td><td>7.00</td><td>88.00</td></tr><tr><td>Pinehurst Settlement Bank Milan</td><td>97.00</td><td>7.20</td><td>7.00</td><td>97.00</td></tr><tr><td>Alder Commercial Bank Hong Kong</td><td>84.00</td><td>7.10</td><td>6.00</td><td>84.00</td></tr><tr><td>Elmwood Clearing Stockholm</td><td>84.00</td><td>7.10</td><td>6.00</td><td>84.00</td></tr><tr><td>Vetchling Commercial Bank Luxembourg</td><td>104.00</td><td>6.70</td><td>7.00</td><td>104.00</td></tr><tr><td>Dunlin Bank Paris</td><td>90.00</td><td>6.70</td><td>6.00</td><td>90.00</td></tr><tr><td>Cedar Clearing Frankfurt</td><td>76.00</td><td>6.60</td><td>5.00</td><td>76.00</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>The amounts are in different currencies and are therefore not directly comparable or summable.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>Display currency is GBP, but the &#x27;Value Amount&#x27; is in the transfer&#x27;s own currency.</li></ul></div>
+    
+    <div class="showcase-block"><h3>Dependencies</h3><ul class="showcase-list"><li>The calculation of failure rate depends on the &#x27;Transfer Status&#x27; and &#x27;Message Status&#x27; fields.</li></ul></div>
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/venue-reliability.pdf" download>PDF</a><a class="dl" href="../assets/venue-reliability.md" download>Markdown</a><a class="dl" href="../assets/venue-reliability.xlsx" download>Excel</a><a class="dl" href="../assets/venue-reliability.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;nostro_transfer&quot;,
+  &quot;sheet&quot;: &quot;Nostro Transfer View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [
+    &quot;Target Account Venue Location&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;count of rows&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: &quot;Failure rate %&quot;,
+  &quot;limit&quot;: 10,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [],
+  &quot;data_as_of&quot;: &quot;2026-08-19T01:21:56&quot;,
+  &quot;measure&quot;: &quot;&quot;,
+  &quot;aggregation&quot;: &quot;count&quot;,
+  &quot;rows_in_view&quot;: 4781,
+  &quot;rows_after_filters&quot;: 4781,
+  &quot;rows_returned&quot;: 10,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:29&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

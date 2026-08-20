@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MI Report Copilot</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">Management views over intraday liquidity data, published as a static snapshot.</p>
+  </div>
+  <div class="header-actions">
+    
+    <a class="switch-btn" href="index.html">Views</a>
+    <a class="switch-btn" href="model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel notice">
+    <h3>What this is</h3>
+    <p>Each view below was produced by the tool and re-run against the data when
+       this page was built. Every figure comes from the same deterministic
+       aggregation the live application uses - none of it is written by a
+       language model, which only names the query and comments on the result.</p>
+    <p>This snapshot holds no API key and calls no service, so it cannot answer a
+       new question. Asking your own needs the live application; these are the
+       curated views plus the full data model behind them.</p>
+    <p class="hint">Data classification: Synthetic / non-production.
+       All identifiers, counterparties, users and amounts are fabricated.</p>
+  </div>
+
+  <div class="gbar">
+    <h2>20 views</h2>
+    <input type="search" id="gsearch" placeholder="Filter views&hellip;"
+           autocomplete="off" aria-label="Filter views">
+    <a class="switch-btn" href="model.html">Data model &mdash; 22 tables</a>
+  </div>
+  <div class="ggrid" id="ggrid">
+      <a class="gcard" href="views/data-completeness.html" data-name="data completeness">
+        <h3>Data completeness</h3>
+        <p>How populated every column of the ledger is, least complete first. Every other view inherits the quality of these fields.</p>
+        <div class="gcard-meta">
+          <span>Business Ledger Txn View</span>
+          <span>17 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/weekday-flow-pattern.html" data-name="weekday flow pattern">
+        <h3>Weekday flow pattern</h3>
+        <p>Ledger flow by day of the week, to see which days are consistently heavier.</p>
+        <div class="gcard-meta">
+          <span>Business Ledger Txn View</span>
+          <span>5 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/balance-volatility-by-account.html" data-name="balance volatility by account">
+        <h3>Balance volatility by account</h3>
+        <p>Accounts ranked by how much their daily balance swings. Volatile balances are where buffers are set and forecasting is hardest.</p>
+        <div class="gcard-meta">
+          <span>Client View</span>
+          <span>25 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/venue-reliability.html" data-name="venue reliability">
+        <h3>Venue reliability</h3>
+        <p>Failure and rejection rate by venue, as a proportion of what we send them. A rate, not a count - three failures in five beats ten in a thousand.</p>
+        <div class="gcard-meta">
+          <span>Nostro Transfer View</span>
+          <span>10 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/currency-net-position.html" data-name="currency net position">
+        <h3>Currency net position</h3>
+        <p>Net position by currency across the period - which currencies we are structurally short of and long in.</p>
+        <div class="gcard-meta">
+          <span>Client View</span>
+          <span>25 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/reconciliation-break-trend.html" data-name="reconciliation break trend">
+        <h3>Reconciliation break trend</h3>
+        <p>Breaks per day across the period against the average, with unusual days marked, so it is clear whether breaks are growing or being cleared.</p>
+        <div class="gcard-meta">
+          <span>Client View</span>
+          <span>22 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/approval-turnaround.html" data-name="approval turnaround">
+        <h3>Approval turnaround</h3>
+        <p>Median and 95th percentile time from creation to approval. The queue view says what is waiting; this says how long waiting normally lasts.</p>
+        <div class="gcard-meta">
+          <span>Nostro Transfer View</span>
+          <span>3 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/cut-off-risk.html" data-name="cut-off risk">
+        <h3>Cut-off risk</h3>
+        <p>Value settling after 16:00, by currency and desk. Late concentration is where an operational delay becomes a liquidity problem.</p>
+        <div class="gcard-meta">
+          <span>Business Ledger Txn View</span>
+          <span>25 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/funding-efficiency.html" data-name="funding efficiency">
+        <h3>Funding efficiency</h3>
+        <p>Credits against debits by hour for the most recent day, with a running total, showing whether inflows arrived before outflows.</p>
+        <div class="gcard-meta">
+          <span>Business Ledger Txn View</span>
+          <span>21 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/desk-performance.html" data-name="desk performance">
+        <h3>Desk performance</h3>
+        <p>Ledger flow by desk with each desk&#x27;s share. States that legal entity cannot be attributed to the ledger view.</p>
+        <div class="gcard-meta">
+          <span>Business Ledger Txn View</span>
+          <span>8 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/payment-failures-and-rejections.html" data-name="payment failures and rejections">
+        <h3>Payment failures and rejections</h3>
+        <p>Failed and rejected transfers by status, with count and value at risk. States that the failure reason is not captured anywhere in the data.</p>
+        <div class="gcard-meta">
+          <span>Nostro Transfer View</span>
+          <span>5 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/reconciliation-breaks-by-account.html" data-name="reconciliation breaks by account">
+        <h3>Reconciliation breaks by account</h3>
+        <p>Accounts with reconciliation breaks, showing how many days each broke and the total difference, so repeat offenders are visible rather than every individual break.</p>
+        <div class="gcard-meta">
+          <span>Client View</span>
+          <span>24 rows</span>
+          
+        </div>
+      </a>
+      <a class="gcard" href="views/largest-individual-movements.html" data-name="largest individual movements">
+        <h3>Largest individual movements</h3>
+        <p>The twenty largest ledger transactions with counterparty, account and both local and display amounts.</p>
+        <div class="gcard-meta">
+          <span>Business Ledger Txn View</span>
+          <span>20 rows</span>
+          
+        </div>
+      </a>
+      <a class="gcard" href="views/daily-flow-trend.html" data-name="daily flow trend">
+        <h3>Daily flow trend</h3>
+        <p>Daily transfer value across the period against the period average, with unusual days marked.</p>
+        <div class="gcard-meta">
+          <span>Nostro Transfer View</span>
+          <span>22 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/approval-queue-through-the-day.html" data-name="approval queue through the day">
+        <h3>Approval queue through the day</h3>
+        <p>How the queue built and drained, every 15 minutes: arrivals, clearances and what was still outstanding. The ageing view says how bad it is; this says how it got that way.</p>
+        <div class="gcard-meta">
+          <span>Nostro Transfer View</span>
+          <span>99 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/approval-queue-by-ageing.html" data-name="approval queue by ageing">
+        <h3>Approval queue by ageing</h3>
+        <p>Value awaiting approval, banded by how long it has been waiting. A snapshot of how bad the queue is now.</p>
+        <div class="gcard-meta">
+          <span>Nostro Transfer View</span>
+          <span>2 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/intraday-flow-timing.html" data-name="intraday flow timing">
+        <h3>Intraday flow timing</h3>
+        <p>Credits against debits by hour for the most recent day, showing when money arrives versus when it leaves.</p>
+        <div class="gcard-meta">
+          <span>Business Ledger Txn View</span>
+          <span>21 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/top-counterparty-concentration.html" data-name="top counterparty concentration">
+        <h3>Top counterparty concentration</h3>
+        <p>The ten counterparties carrying most ledger flow, with their share of the total.</p>
+        <div class="gcard-meta">
+          <span>Business Ledger Txn View</span>
+          <span>10 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/currency-concentration.html" data-name="currency concentration">
+        <h3>Currency concentration</h3>
+        <p>Transfer value by currency with each currency&#x27;s share of the GBP-equivalent total, largest first.</p>
+        <div class="gcard-meta">
+          <span>Nostro Transfer View</span>
+          <span>25 rows</span>
+          <span>chart</span>
+        </div>
+      </a>
+      <a class="gcard" href="views/peak-intraday-liquidity-usage.html" data-name="peak intraday liquidity usage">
+        <h3>Peak intraday liquidity usage</h3>
+        <p>Largest intraday position per currency per day, worst first, with the time it peaked and where the day closed. The BCBS 248 monitoring shape.</p>
+        <div class="gcard-meta">
+          <span>Business Ledger Txn View</span>
+          <span>15 rows</span>
+          
+        </div>
+      </a></div>
+  <p class="model-foot">Built 2026-08-20 09:30 UTC
+     from synthetic_liquidity_month.xlsx.</p>
+</main>
+<script>
+const gsearch = document.getElementById('gsearch');
+gsearch.addEventListener('input', () => {
+  const term = gsearch.value.trim().toLowerCase();
+  document.querySelectorAll('.gcard').forEach((card) => {
+    card.hidden = Boolean(term) && !card.dataset.name.includes(term);
+  });
+});
+</script>
+</body>
+</html>

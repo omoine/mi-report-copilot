@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekday flow pattern - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Sum of Amount (Display) by Day of week</h2>
+    <p class="showcase-desc">Ledger flow by day of the week, to see which days are consistently heavier.</p>
+    <p class="showcase-ask"><span>Asked as</span> Compare total daily ledger flow by day of the week, so I can see which days are consistently heavier.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total Amount (Display)</div><div class="hero-value">-283.6bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">-97.8bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">80%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/weekday-flow-pattern-chart.png" alt="Sum of Amount (Display) by Day of week"></div>
+    
+    <div class="showcase-block"><h3>Commentary</h3><p>The report presents the total daily ledger flow categorized by each day of the week. Thursday is the only day with a positive ledger flow, amounting to 20,852,099,122.10, indicating it is consistently lighter compared to other days. In contrast, Friday has the heaviest negative flow at -97,832,696,698.84, followed closely by Wednesday with -90,336,060,315.29. The operations team should particularly examine the significant negative flows on Monday, Wednesday, and Friday to understand the underlying factors contributing to these imbalances.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Day of week</th><th>Amount (Display)</th></tr></thead><tbody><tr><td>Thursday</td><td>20,852,099,122.10</td></tr><tr><td>Tuesday</td><td>-44,129,449,967.96</td></tr><tr><td>Monday</td><td>-72,188,989,461.81</td></tr><tr><td>Wednesday</td><td>-90,336,060,315.29</td></tr><tr><td>Friday</td><td>-97,832,696,698.84</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>Amounts are translated using static synthetic FX rates to GBP.</li><li>Data completeness depends on all transactions being received and processed.</li><li>This is synthetic, non-production data.</li></ul></div>
+    
+    
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/weekday-flow-pattern.pdf" download>PDF</a><a class="dl" href="../assets/weekday-flow-pattern.md" download>Markdown</a><a class="dl" href="../assets/weekday-flow-pattern.xlsx" download>Excel</a><a class="dl" href="../assets/weekday-flow-pattern.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;business_ledger&quot;,
+  &quot;sheet&quot;: &quot;Business Ledger Txn View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [
+    &quot;Day of week&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;sum of Amount (Display)&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: null,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [
+    &quot;Day of week&quot;
+  ],
+  &quot;currency_corrections&quot;: [],
+  &quot;data_as_of&quot;: &quot;2026-08-18T21:35:41&quot;,
+  &quot;measure&quot;: &quot;Amount (Display)&quot;,
+  &quot;aggregation&quot;: &quot;sum&quot;,
+  &quot;rows_in_view&quot;: 9780,
+  &quot;rows_after_filters&quot;: 9780,
+  &quot;rows_returned&quot;: 5,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:21&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

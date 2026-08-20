@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Currency concentration - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Sum of Value Amount by Currency</h2>
+    <p class="showcase-desc">Transfer value by currency with each currency&#x27;s share of the GBP-equivalent total, largest first.</p>
+    <p class="showcase-ask"><span>Asked as</span> Show total transfer value by currency with each currency&#x27;s share of the total, largest first.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total Value Amount</div><div class="hero-value">2,122.6bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">739.0bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">61%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/currency-concentration-chart.png" alt="Sum of Value Amount by Currency"></div>
+    <p class="hint">% of total Value Amount (Display) is a percentage and cannot share an axis with the amounts, so it is in the table only. Only the largest 14 categories are charted; the remainder are combined into a single &#x27;Other&#x27; bar. The full breakdown is in the table.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report displays the total transfer value by currency, highlighting each currency&#x27;s share of the total, sorted from largest to smallest. The US Dollar (USD) is the dominant currency, accounting for 49.70% of the total transfer value, followed by the Euro (EUR) at 25.91%. The Mexican Peso (MXN) and Australian Dollar (AUD) also contribute significantly, with 7.44% and 0.74% respectively. Notably, the South Korean Won (KRW) and Hungarian Forint (HUF) have negligible contributions, each with a 0.00% share, indicating minimal activity in these currencies.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Currency</th><th>Value Amount</th><th>% of total Value Amount (Display)</th></tr></thead><tbody><tr><td>USD</td><td>738,970,937,592.44</td><td>49.70</td></tr><tr><td>EUR</td><td>352,095,014,117.26</td><td>25.91</td></tr><tr><td>MXN</td><td>202,129,663,935.04</td><td>0.74</td></tr><tr><td>AUD</td><td>169,111,259,214.50</td><td>7.44</td></tr><tr><td>PLN</td><td>132,170,529,721.80</td><td>2.24</td></tr><tr><td>HKD</td><td>100,096,371,681.22</td><td>0.86</td></tr><tr><td>CAD</td><td>89,950,470,412.85</td><td>4.43</td></tr><tr><td>CNY</td><td>55,431,164,086.73</td><td>0.52</td></tr><tr><td>INR</td><td>48,686,672,829.03</td><td>0.04</td></tr><tr><td>CHF</td><td>40,818,476,371.32</td><td>3.14</td></tr><tr><td>GBP</td><td>37,628,303,312.58</td><td>3.23</td></tr><tr><td>AED</td><td>32,596,773,083.96</td><td>0.60</td></tr><tr><td>KRW</td><td>18,954,373,622.48</td><td>0.00</td></tr><tr><td>SAR</td><td>16,097,969,892.19</td><td>0.29</td></tr><tr><td>TRY</td><td>13,699,773,181.93</td><td>0.03</td></tr><tr><td>NOK</td><td>12,490,505,187.52</td><td>0.08</td></tr><tr><td>THB</td><td>10,062,933,822.67</td><td>0.02</td></tr><tr><td>HUF</td><td>8,100,303,576.60</td><td>0.00</td></tr><tr><td>ZAR</td><td>8,058,672,871.82</td><td>0.03</td></tr><tr><td>ILS</td><td>6,259,638,440.70</td><td>0.11</td></tr><tr><td>SEK</td><td>6,122,447,175.97</td><td>0.04</td></tr><tr><td>SGD</td><td>5,706,060,864.78</td><td>0.29</td></tr><tr><td>DKK</td><td>5,526,488,848.22</td><td>0.05</td></tr><tr><td>NZD</td><td>5,158,295,791.55</td><td>0.21</td></tr><tr><td>Other (3)</td><td>6,632,204,353.22</td><td></td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>Each share is calculated on &#x27;Value Amount (Display)&#x27;, the FX-translated amount, because the currency totals in &#x27;Value Amount&#x27; are in different units and their sum would not be a meaningful denominator.</li><li>27 groups were returned. The 24 largest are shown individually and the remaining 3 are combined into &quot;Other&quot; - a breakdown this long is not readable as a management view. Ask for a specific group, or a top-N, to go further.</li><li>The amounts are in different currencies and are therefore not directly comparable or summable.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>This is synthetic, non-production data.</li></ul></div>
+    
+    
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/currency-concentration.pdf" download>PDF</a><a class="dl" href="../assets/currency-concentration.md" download>Markdown</a><a class="dl" href="../assets/currency-concentration.xlsx" download>Excel</a><a class="dl" href="../assets/currency-concentration.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;nostro_transfer&quot;,
+  &quot;sheet&quot;: &quot;Nostro Transfer View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [
+    &quot;Currency&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;sum of Value Amount&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: &quot;Value Amount&quot;,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [
+    &quot;27 groups were returned. The 24 largest are shown individually and the remaining 3 are combined into \&quot;Other\&quot; - a breakdown this long is not readable as a management view. Ask for a specific group, or a top-N, to go further.&quot;,
+    &quot;Each share is calculated on &#x27;Value Amount (Display)&#x27;, the FX-translated amount, because the currency totals in &#x27;Value Amount&#x27; are in different units and their sum would not be a meaningful denominator.&quot;
+  ],
+  &quot;data_as_of&quot;: &quot;2026-08-19T01:21:56&quot;,
+  &quot;measure&quot;: &quot;Value Amount&quot;,
+  &quot;aggregation&quot;: &quot;sum&quot;,
+  &quot;rows_in_view&quot;: 4781,
+  &quot;rows_after_filters&quot;: 4781,
+  &quot;rows_returned&quot;: 25,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:30:18&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

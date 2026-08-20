@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cut-off risk - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Sum of Amount (Display) by CCY (Local), Sub Branch - Hour of day at least 16:00</h2>
+    <p class="showcase-desc">Value settling after 16:00, by currency and desk. Late concentration is where an operational delay becomes a liquidity problem.</p>
+    <p class="showcase-ask"><span>Asked as</span> How much ledger value settles after 16:00 each day, and which currencies and desks does it sit in?</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total Amount (Display)</div><div class="hero-value">18.1bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">77.7bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">79%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/cut-off-risk-chart.png" alt="Sum of Amount (Display) by CCY (Local), Sub Branch - Hour of day at least 16:00"></div>
+    <p class="hint">Only the largest 14 categories are charted; the remainder are combined into a single &#x27;Other&#x27; bar. The full breakdown is in the table.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report provides a breakdown of the total ledger value settling after 16:00 each day, categorized by currency and desk. The most significant contributor is the EUR currency, particularly in the BRCC sub-branch, with a substantial amount of 77,665,853,366.72. Notably, the BRBX sub-branch also shows significant activity in EUR and USD, with amounts of 14,375,758,416.69 and 12,825,628,251.33, respectively. An operations reader should closely examine the negative value in the &quot;Other (111)&quot; category, which stands at -114,370,900,617.22, as it may indicate an imbalance or offset that requires further investigation.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>CCY (Local)</th><th>Sub Branch</th><th>Amount (Display)</th></tr></thead><tbody><tr><td>EUR</td><td>BRCC</td><td>77,665,853,366.72</td></tr><tr><td>EUR</td><td>BRBX</td><td>14,375,758,416.69</td></tr><tr><td>USD</td><td>BRBX</td><td>12,825,628,251.33</td></tr><tr><td>EUR</td><td>BRGL</td><td>8,215,181,048.53</td></tr><tr><td>CNY</td><td>BRBX</td><td>6,904,845,115.35</td></tr><tr><td>HKD</td><td>BRNK</td><td>1,961,290,667.33</td></tr><tr><td>EUR</td><td>BRAA</td><td>1,729,653,242.57</td></tr><tr><td>CHF</td><td>BRGL</td><td>1,174,690,820.58</td></tr><tr><td>CAD</td><td>BRYG</td><td>725,606,616.84</td></tr><tr><td>TRY</td><td>BRBX</td><td>721,085,729.09</td></tr><tr><td>AUD</td><td>BRCC</td><td>701,056,431.10</td></tr><tr><td>CHF</td><td>BRYG</td><td>686,153,775.95</td></tr><tr><td>PLN</td><td>BRGX</td><td>678,580,431.02</td></tr><tr><td>AUD</td><td>BRYG</td><td>638,413,349.78</td></tr><tr><td>AUD</td><td>BRMD</td><td>548,436,564.28</td></tr><tr><td>GBP</td><td>BRBX</td><td>522,447,232.24</td></tr><tr><td>GBP</td><td>BRNK</td><td>456,637,020.28</td></tr><tr><td>GBP</td><td>BRYG</td><td>393,128,583.71</td></tr><tr><td>AUD</td><td>BRGL</td><td>337,148,648.97</td></tr><tr><td>MXN</td><td>BRMD</td><td>314,259,848.27</td></tr><tr><td>GBP</td><td>BRAA</td><td>310,121,979.10</td></tr><tr><td>EUR</td><td>BRGX</td><td>238,433,875.04</td></tr><tr><td>SAR</td><td>BRGX</td><td>198,212,179.22</td></tr><tr><td>INR</td><td>BRNK</td><td>172,301,864.09</td></tr><tr><td>Other (111)</td><td></td><td>-114,370,900,617.22</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>135 groups were returned. The 24 largest are shown individually and the remaining 111 are combined into &quot;Other&quot; - a breakdown this long is not readable as a management view. Ask for a specific group, or a top-N, to go further.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>The amounts are translated using static synthetic FX rates to GBP.</li><li>The data is synthetic and non-production.</li></ul></div>
+    
+    
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/cut-off-risk.pdf" download>PDF</a><a class="dl" href="../assets/cut-off-risk.md" download>Markdown</a><a class="dl" href="../assets/cut-off-risk.xlsx" download>Excel</a><a class="dl" href="../assets/cut-off-risk.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;business_ledger&quot;,
+  &quot;sheet&quot;: &quot;Business Ledger Txn View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [
+    {
+      &quot;column&quot;: &quot;Hour of day&quot;,
+      &quot;operator&quot;: &quot;gte&quot;,
+      &quot;value&quot;: &quot;16:00&quot;
+    }
+  ],
+  &quot;group_by&quot;: [
+    &quot;CCY (Local)&quot;,
+    &quot;Sub Branch&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;sum of Amount (Display)&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: null,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [
+    &quot;Hour of day&quot;
+  ],
+  &quot;currency_corrections&quot;: [
+    &quot;135 groups were returned. The 24 largest are shown individually and the remaining 111 are combined into \&quot;Other\&quot; - a breakdown this long is not readable as a management view. Ask for a specific group, or a top-N, to go further.&quot;
+  ],
+  &quot;data_as_of&quot;: &quot;2026-08-18T21:35:41&quot;,
+  &quot;measure&quot;: &quot;Amount (Display)&quot;,
+  &quot;aggregation&quot;: &quot;sum&quot;,
+  &quot;rows_in_view&quot;: 9780,
+  &quot;rows_after_filters&quot;: 1589,
+  &quot;rows_returned&quot;: 25,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:42&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

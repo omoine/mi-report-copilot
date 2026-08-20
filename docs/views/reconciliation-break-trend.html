@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reconciliation break trend - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Count of records by Value Date (day) - Match is unmatched</h2>
+    <p class="showcase-desc">Breaks per day across the period against the average, with unusual days marked, so it is clear whether breaks are growing or being cleared.</p>
+    <p class="showcase-ask"><span>Asked as</span> Show the number of reconciliation breaks per day across the month, in date order, so I can see whether breaks are growing or being cleared.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total count</div><div class="hero-value">481</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">75</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">28%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/reconciliation-break-trend-chart.png" alt="Count of records by Value Date (day) - Match is unmatched"></div>
+    <p class="hint">vs average % is a percentage and cannot share an axis with the amounts, so it is in the table only.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report displays the daily count of reconciliation breaks over a specified period, highlighting fluctuations in their occurrence. Notably, on August 4, 2026, there is a significant spike with 75 breaks, which is 243% above the average, marking it as an unusual day. This outlier suggests a need for further investigation into the causes of this anomaly. Overall, while there are fluctuations, the number of breaks generally remains below the average, except for a few days with notable increases.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Value Date (day)</th><th>count</th><th>vs average %</th><th>Unusual</th></tr></thead><tbody><tr><td>2026-07-20</td><td>20.00</td><td>-8.50</td><td></td></tr><tr><td>2026-07-21</td><td>19.00</td><td>-13.10</td><td></td></tr><tr><td>2026-07-22</td><td>17.00</td><td>-22.20</td><td></td></tr><tr><td>2026-07-23</td><td>25.00</td><td>14.30</td><td></td></tr><tr><td>2026-07-24</td><td>16.00</td><td>-26.80</td><td></td></tr><tr><td>2026-07-27</td><td>19.00</td><td>-13.10</td><td></td></tr><tr><td>2026-07-28</td><td>12.00</td><td>-45.10</td><td></td></tr><tr><td>2026-07-29</td><td>13.00</td><td>-40.50</td><td></td></tr><tr><td>2026-07-30</td><td>33.00</td><td>50.90</td><td></td></tr><tr><td>2026-07-31</td><td>21.00</td><td>-4.00</td><td></td></tr><tr><td>2026-08-03</td><td>24.00</td><td>9.80</td><td></td></tr><tr><td>2026-08-04</td><td>75.00</td><td>243.00</td><td>yes</td></tr><tr><td>2026-08-05</td><td>19.00</td><td>-13.10</td><td></td></tr><tr><td>2026-08-06</td><td>28.00</td><td>28.10</td><td></td></tr><tr><td>2026-08-07</td><td>18.00</td><td>-17.70</td><td></td></tr><tr><td>2026-08-10</td><td>19.00</td><td>-13.10</td><td></td></tr><tr><td>2026-08-11</td><td>16.00</td><td>-26.80</td><td></td></tr><tr><td>2026-08-12</td><td>18.00</td><td>-17.70</td><td></td></tr><tr><td>2026-08-13</td><td>16.00</td><td>-26.80</td><td></td></tr><tr><td>2026-08-14</td><td>14.00</td><td>-36.00</td><td></td></tr><tr><td>2026-08-17</td><td>21.00</td><td>-4.00</td><td></td></tr><tr><td>2026-08-18</td><td>18.00</td><td>-17.70</td><td></td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>1 of 22 periods sit more than two standard deviations from the period average of 22 and are marked as unusual.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>Data completeness depends on whether all transactions have been received and processed.</li><li>This is synthetic, non-production data.</li></ul></div>
+    
+    
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/reconciliation-break-trend.pdf" download>PDF</a><a class="dl" href="../assets/reconciliation-break-trend.md" download>Markdown</a><a class="dl" href="../assets/reconciliation-break-trend.xlsx" download>Excel</a><a class="dl" href="../assets/reconciliation-break-trend.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;client&quot;,
+  &quot;sheet&quot;: &quot;Client View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [
+    {
+      &quot;column&quot;: &quot;Match&quot;,
+      &quot;operator&quot;: &quot;eq&quot;,
+      &quot;value&quot;: &quot;unmatched&quot;
+    }
+  ],
+  &quot;group_by&quot;: [
+    &quot;Value Date (day)&quot;
+  ],
+  &quot;time_bucket&quot;: {
+    &quot;column&quot;: &quot;Value Date&quot;,
+    &quot;granularity&quot;: &quot;day&quot;
+  },
+  &quot;measures&quot;: [
+    &quot;count of rows&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: &quot;Value Date (day)&quot;,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [
+    &quot;1 of 22 periods sit more than two standard deviations from the period average of 22 and are marked as unusual.&quot;
+  ],
+  &quot;data_as_of&quot;: null,
+  &quot;measure&quot;: &quot;&quot;,
+  &quot;aggregation&quot;: &quot;count&quot;,
+  &quot;rows_in_view&quot;: 19800,
+  &quot;rows_after_filters&quot;: 481,
+  &quot;rows_returned&quot;: 22,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:36&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

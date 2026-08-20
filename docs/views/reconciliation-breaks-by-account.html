@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reconciliation breaks by account - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Value Date vs Difference (Local) by Account, Account Name, Currency - Match is unmatched</h2>
+    <p class="showcase-desc">Accounts with reconciliation breaks, showing how many days each broke and the total difference, so repeat offenders are visible rather than every individual break.</p>
+    <p class="showcase-ask"><span>Asked as</span> Which client accounts had reconciliation breaks? For each one show how many days it broke and the total difference, worst first, so I can see the repeat offenders rather than every individual break.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total Value Date</div><div class="hero-value">41</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">3</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">22%</div><div class="hero-note"></div></div></div>
+    
+    <p class="hint">Presented as a table; no chart was requested.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report identifies client accounts with reconciliation breaks, highlighting the number of days each account experienced breaks and the total difference in value, sorted by the largest total difference. The account &quot;Liquidity HUF 05&quot; had the most significant total difference, with a discrepancy of 23,834,846.18 HUF over 2 days. Other notable accounts include &quot;Fees KRW 67&quot; with a difference of 9,804,129.70 KRW over 1 day and &quot;Liquidity NZD 65&quot; with a difference of 6,294,663.84 NZD over 2 days. The operations team should particularly focus on accounts with large discrepancies, such as &quot;Liquidity HUF 05,&quot; to understand the underlying issues.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Account</th><th>Account Name</th><th>Currency</th><th>Value Date</th><th>Difference (Local)</th></tr></thead><tbody><tr><td>635895235692</td><td>Liquidity HUF 05</td><td>HUF</td><td>2.00</td><td>23,834,846.18</td></tr><tr><td>506429042208</td><td>Fees KRW 67</td><td>KRW</td><td>1.00</td><td>9,804,129.70</td></tr><tr><td>136727044598</td><td>Liquidity NZD 65</td><td>NZD</td><td>2.00</td><td>6,294,663.84</td></tr><tr><td>554175105181</td><td>Client Money EUR 21</td><td>EUR</td><td>2.00</td><td>5,742,530.82</td></tr><tr><td>557420453767</td><td>Nostro TRY 10</td><td>TRY</td><td>1.00</td><td>5,732,838.83</td></tr><tr><td>647564070032</td><td>Operating USD 26</td><td>USD</td><td>1.00</td><td>4,506,177.97</td></tr><tr><td>139885175341</td><td>Client Money NOK 18</td><td>NOK</td><td>1.00</td><td>4,199,982.32</td></tr><tr><td>367590845932</td><td>Reserve ZAR 84</td><td>ZAR</td><td>2.00</td><td>3,855,693.41</td></tr><tr><td>392285777666</td><td>Client Money EUR 06</td><td>EUR</td><td>1.00</td><td>3,769,330.30</td></tr><tr><td>992781903044</td><td>Fees SAR 16</td><td>SAR</td><td>1.00</td><td>3,734,657.88</td></tr><tr><td>840264396104</td><td>Operating USD 07</td><td>USD</td><td>3.00</td><td>3,612,015.25</td></tr><tr><td>869030207549</td><td>Operating HKD 52</td><td>HKD</td><td>2.00</td><td>3,525,019.32</td></tr><tr><td>174292189143</td><td>Nostro EUR 02</td><td>EUR</td><td>1.00</td><td>3,472,890.39</td></tr><tr><td>781591349216</td><td>Operating USD 52</td><td>USD</td><td>3.00</td><td>3,406,485.79</td></tr><tr><td>234718343740</td><td>Reserve AUD 59</td><td>AUD</td><td>3.00</td><td>3,354,291.32</td></tr><tr><td>493972530540</td><td>Fees USD 88</td><td>USD</td><td>2.00</td><td>2,998,233.73</td></tr><tr><td>388302175639</td><td>Settlement PLN 25</td><td>PLN</td><td>1.00</td><td>2,955,738.02</td></tr><tr><td>366583448027</td><td>Liquidity HKD 23</td><td>HKD</td><td>2.00</td><td>2,757,820.01</td></tr><tr><td>759684352419</td><td>Settlement USD 38</td><td>USD</td><td>2.00</td><td>2,752,059.85</td></tr><tr><td>234047922297</td><td>Liquidity NZD 20</td><td>NZD</td><td>1.00</td><td>2,534,984.87</td></tr><tr><td>968057590558</td><td>Collateral EUR 78</td><td>EUR</td><td>1.00</td><td>2,421,506.40</td></tr><tr><td>820705568190</td><td>Reserve RON 08</td><td>RON</td><td>1.00</td><td>2,420,690.44</td></tr><tr><td>549254148563</td><td>Client Money USD 41</td><td>USD</td><td>2.00</td><td>2,320,298.92</td></tr><tr><td>879176587681</td><td>Collateral EUR 23</td><td>EUR</td><td>3.00</td><td>2,277,410.13</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>Showing the 24 largest of 375 groups. The rest are omitted rather than combined, because averaging an average would not give a meaningful figure.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>The total difference is in local currency and grouped by currency to ensure comparability.</li></ul></div>
+    
+    <div class="showcase-block"><h3>Dependencies</h3><ul class="showcase-list"><li>The reconciliation status depends on the match tolerance setting of 0.01.</li></ul></div>
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/reconciliation-breaks-by-account.pdf" download>PDF</a><a class="dl" href="../assets/reconciliation-breaks-by-account.md" download>Markdown</a><a class="dl" href="../assets/reconciliation-breaks-by-account.xlsx" download>Excel</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;client&quot;,
+  &quot;sheet&quot;: &quot;Client View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [
+    {
+      &quot;column&quot;: &quot;Match&quot;,
+      &quot;operator&quot;: &quot;eq&quot;,
+      &quot;value&quot;: &quot;unmatched&quot;
+    }
+  ],
+  &quot;group_by&quot;: [
+    &quot;Account&quot;,
+    &quot;Account Name&quot;,
+    &quot;Currency&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;nunique of Value Date&quot;,
+    &quot;sum of Difference (Local)&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: &quot;Difference (Local)&quot;,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [
+    &quot;Showing the 24 largest of 375 groups. The rest are omitted rather than combined, because averaging an average would not give a meaningful figure.&quot;
+  ],
+  &quot;data_as_of&quot;: null,
+  &quot;measure&quot;: &quot;Value Date&quot;,
+  &quot;aggregation&quot;: &quot;nunique&quot;,
+  &quot;rows_in_view&quot;: 19800,
+  &quot;rows_after_filters&quot;: 481,
+  &quot;rows_returned&quot;: 24,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:55&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

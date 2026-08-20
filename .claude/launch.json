@@ -4,8 +4,26 @@
     {
       "name": "mi-poc",
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--port", "8099"],
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--port",
+        "8099"
+      ],
       "port": 8099
+    },
+    {
+      "name": "showcase",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8123",
+        "--directory",
+        "docs"
+      ],
+      "port": 8123
     }
   ]
 }

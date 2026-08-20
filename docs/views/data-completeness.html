@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data completeness - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Data completeness - Business Ledger Txn</h2>
+    <p class="showcase-desc">How populated every column of the ledger is, least complete first. Every other view inherits the quality of these fields.</p>
+    <p class="showcase-ask"><span>Asked as</span> How complete is the business ledger data? Show every column with how many rows are populated and how many are missing, least complete first.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total Populated</div><div class="hero-value">160.8k</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">9.8k</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">18%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/data-completeness-chart.png" alt="Data completeness - Business Ledger Txn"></div>
+    <p class="hint">% populated is a percentage and cannot share an axis with the amounts, so it is in the table only. Only the largest 14 categories are charted; the remainder are combined into a single &#x27;Other&#x27; bar. The full breakdown is in the table.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report indicates that the business ledger data is largely complete, with most columns fully populated. The &quot;Upstream Transaction ID&quot; column is the least complete, with only 4,360 rows populated and 5,420 rows missing, resulting in a 44.60% completion rate. All other columns, such as &quot;Account,&quot; &quot;Sub Branch,&quot; and &quot;Cashflow Type,&quot; are fully populated with 9,780 entries each. The operations team should focus on addressing the missing data in the &quot;Upstream Transaction ID&quot; column to improve overall data completeness.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Column</th><th>Populated</th><th>Missing</th><th>% populated</th><th>Distinct values</th></tr></thead><tbody><tr><td>Upstream Transaction ID</td><td>4,360.00</td><td>5,420.00</td><td>44.60</td><td>868.00</td></tr><tr><td>Account</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>899.00</td></tr><tr><td>Sub Branch</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>8.00</td></tr><tr><td>Cashflow Type</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>5.00</td></tr><tr><td>Debit/Credit Mark</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>2.00</td></tr><tr><td>CCY (Local)</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>27.00</td></tr><tr><td>Amount (Local)</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>9,780.00</td></tr><tr><td>Value Date</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>22.00</td></tr><tr><td>CCY (Display)</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>1.00</td></tr><tr><td>Amount (Display)</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>9,780.00</td></tr><tr><td>Transaction Reference</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>9,780.00</td></tr><tr><td>Transaction Timestamp</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>9,739.00</td></tr><tr><td>Ledger Account</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>1,150.00</td></tr><tr><td>Counterparty</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>45.00</td></tr><tr><td>Book Id</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>32.00</td></tr><tr><td>Trade Status</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>3.00</td></tr><tr><td>Net Type</td><td>9,780.00</td><td>0.00</td><td>100.00</td><td>3.00</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>The view is scoped to the Business Ledger Transaction View with data from 2026-07-20 to 2026-08-18.</li><li>This is synthetic, non-production data.</li><li>Data completeness depends on whether all transactions have been received and processed.</li></ul></div>
+    
+    
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/data-completeness.pdf" download>PDF</a><a class="dl" href="../assets/data-completeness.md" download>Markdown</a><a class="dl" href="../assets/data-completeness.xlsx" download>Excel</a><a class="dl" href="../assets/data-completeness.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;business_ledger&quot;,
+  &quot;sheet&quot;: &quot;Business Ledger Txn View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;quality&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: null,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [],
+  &quot;data_as_of&quot;: &quot;2026-08-18T21:35:41&quot;,
+  &quot;measure&quot;: null,
+  &quot;aggregation&quot;: null,
+  &quot;rows_in_view&quot;: 9780,
+  &quot;rows_after_filters&quot;: 9780,
+  &quot;rows_returned&quot;: 17,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:14&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

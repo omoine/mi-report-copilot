@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment failures and rejections - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Count of Value Amount by Transfer Status - (Transfer Status is FAILED or Message Status contains REJECTED)</h2>
+    <p class="showcase-desc">Failed and rejected transfers by status, with count and value at risk. States that the failure reason is not captured anywhere in the data.</p>
+    <p class="showcase-ask"><span>Asked as</span> Break down transfers that failed or were rejected by their status, with the count and total value in each, and tell me why they failed.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total count</div><div class="hero-value">199</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">98</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">95%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/payment-failures-and-rejections-chart.png" alt="Count of Value Amount by Transfer Status - (Transfer Status is FAILED or Message Status contains REJECTED)"></div>
+    <p class="hint">count peaks at 98, against 63.7bn for the largest series, so plotting it would be a flat line on the axis. It is in the table.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report provides a breakdown of transfers that either failed or were rejected, categorized by their status, along with the count and total value for each status. The most significant category is &quot;FAILED,&quot; with 98 transfers totaling a value of 27,651,750,602.51. The &quot;LEDGER_OR_CASHFLOW_RECEIVED&quot; status also represents a substantial portion, with 85 transfers amounting to 63,747,371,116.90. The &quot;CASHFLOW_RECEIVED,&quot; &quot;PENDING_APPROVAL,&quot; and &quot;LEDGER_RECEIVED&quot; statuses have significantly lower counts and values. The operations team should particularly focus on the &quot;FAILED&quot; and &quot;LEDGER_OR_CASHFLOW_RECEIVED&quot; categories due to their high values and counts, which may indicate areas needing further investigation.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Transfer Status</th><th>count</th><th>Value Amount (Display)</th></tr></thead><tbody><tr><td>FAILED</td><td>98.00</td><td>27,651,750,602.51</td></tr><tr><td>LEDGER_OR_CASHFLOW_RECEIVED</td><td>85.00</td><td>63,747,371,116.90</td></tr><tr><td>CASHFLOW_RECEIVED</td><td>7.00</td><td>587,299,540.24</td></tr><tr><td>PENDING_APPROVAL</td><td>5.00</td><td>1,704,561,754.20</td></tr><tr><td>LEDGER_RECEIVED</td><td>4.00</td><td>339,478,906.23</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>&#x27;Value Amount&#x27; is held in each row&#x27;s own currency and this result spans 20 currencies, so adding it would combine unlike units. &#x27;Value Amount (Display)&#x27; was used instead, which is FX-translated to a single currency.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>Amounts are in different currencies and are not directly comparable or summable without conversion.</li><li>The reason for failure is not captured in the available data.</li></ul></div>
+    
+    <div class="showcase-block"><h3>Dependencies</h3><ul class="showcase-list"><li>Data completeness and accuracy depend on the synthetic nature of the dataset.</li></ul></div>
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/payment-failures-and-rejections.pdf" download>PDF</a><a class="dl" href="../assets/payment-failures-and-rejections.md" download>Markdown</a><a class="dl" href="../assets/payment-failures-and-rejections.xlsx" download>Excel</a><a class="dl" href="../assets/payment-failures-and-rejections.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;nostro_transfer&quot;,
+  &quot;sheet&quot;: &quot;Nostro Transfer View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [
+    {
+      &quot;any&quot;: [
+        {
+          &quot;column&quot;: &quot;Transfer Status&quot;,
+          &quot;operator&quot;: &quot;eq&quot;,
+          &quot;value&quot;: &quot;FAILED&quot;
+        },
+        {
+          &quot;column&quot;: &quot;Message Status&quot;,
+          &quot;operator&quot;: &quot;contains&quot;,
+          &quot;value&quot;: &quot;REJECTED&quot;
+        }
+      ]
+    }
+  ],
+  &quot;group_by&quot;: [
+    &quot;Transfer Status&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;count of rows&quot;,
+    &quot;sum of Value Amount (Display)&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: null,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [
+    &quot;&#x27;Value Amount&#x27; is held in each row&#x27;s own currency and this result spans 20 currencies, so adding it would combine unlike units. &#x27;Value Amount (Display)&#x27; was used instead, which is FX-translated to a single currency.&quot;
+  ],
+  &quot;data_as_of&quot;: &quot;2026-08-19T01:21:56&quot;,
+  &quot;measure&quot;: &quot;&quot;,
+  &quot;aggregation&quot;: &quot;count&quot;,
+  &quot;rows_in_view&quot;: 4781,
+  &quot;rows_after_filters&quot;: 199,
+  &quot;rows_returned&quot;: 5,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:52&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

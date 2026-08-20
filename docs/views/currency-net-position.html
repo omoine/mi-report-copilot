@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Currency net position - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Sum of Net Position by Currency</h2>
+    <p class="showcase-desc">Net position by currency across the period - which currencies we are structurally short of and long in.</p>
+    <p class="showcase-ask"><span>Asked as</span> Show the net position by currency across the month - credits less debits - so I can see which currencies we are structurally short of.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total Net Position</div><div class="hero-value">131.3bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">58.4bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">79%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/currency-net-position-chart.png" alt="Sum of Net Position by Currency"></div>
+    <p class="hint">Only the largest 14 categories are charted; the remainder are combined into a single &#x27;Other&#x27; bar. The full breakdown is in the table.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report displays the net position by currency for the month, highlighting which currencies the bank is structurally short of. The USD has the largest net position at 58,352,868,317.05, followed by the EUR at 37,202,618,870.24, indicating a significant surplus in these currencies. The smallest net positions are observed in the HUF and CZK, with values of 49,252,265.38 and 48,641,849.20, respectively. Operations should closely monitor these smaller net positions to ensure adequate liquidity coverage.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Currency</th><th>Net Position</th></tr></thead><tbody><tr><td>USD</td><td>58,352,868,317.05</td></tr><tr><td>EUR</td><td>37,202,618,870.24</td></tr><tr><td>CHF</td><td>8,151,918,994.81</td></tr><tr><td>AUD</td><td>5,555,501,221.77</td></tr><tr><td>GBP</td><td>5,461,242,061.71</td></tr><tr><td>CAD</td><td>5,180,379,237.21</td></tr><tr><td>PLN</td><td>1,739,913,185.52</td></tr><tr><td>SGD</td><td>1,494,627,231.92</td></tr><tr><td>SAR</td><td>1,045,550,665.70</td></tr><tr><td>AED</td><td>929,011,268.32</td></tr><tr><td>NOK</td><td>842,126,736.82</td></tr><tr><td>CNY</td><td>821,936,328.22</td></tr><tr><td>NZD</td><td>791,352,133.56</td></tr><tr><td>HKD</td><td>703,277,132.91</td></tr><tr><td>MXN</td><td>693,788,957.87</td></tr><tr><td>ILS</td><td>573,871,487.27</td></tr><tr><td>ZAR</td><td>444,067,305.27</td></tr><tr><td>RON</td><td>423,211,268.57</td></tr><tr><td>SEK</td><td>329,489,211.19</td></tr><tr><td>TRY</td><td>222,046,864.96</td></tr><tr><td>DKK</td><td>154,281,887.85</td></tr><tr><td>THB</td><td>57,796,552.86</td></tr><tr><td>HUF</td><td>49,252,265.38</td></tr><tr><td>CZK</td><td>48,641,849.20</td></tr><tr><td>Other (3)</td><td>44,974,070.54</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>27 groups were returned. The 24 largest are shown individually and the remaining 3 are combined into &quot;Other&quot; - a breakdown this long is not readable as a management view. Ask for a specific group, or a top-N, to go further.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>The net position is calculated using static synthetic FX rates for display currency translation.</li><li>This analysis assumes all transactions have been received and processed for the period.</li></ul></div>
+    
+    <div class="showcase-block"><h3>Dependencies</h3><ul class="showcase-list"><li>The calculation depends on the derived column &#x27;Net Position&#x27; which is not directly sourced.</li></ul></div>
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/currency-net-position.pdf" download>PDF</a><a class="dl" href="../assets/currency-net-position.md" download>Markdown</a><a class="dl" href="../assets/currency-net-position.xlsx" download>Excel</a><a class="dl" href="../assets/currency-net-position.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;client&quot;,
+  &quot;sheet&quot;: &quot;Client View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [
+    &quot;Currency&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;sum of Net Position&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: null,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [
+    &quot;Net Position&quot;
+  ],
+  &quot;currency_corrections&quot;: [
+    &quot;27 groups were returned. The 24 largest are shown individually and the remaining 3 are combined into \&quot;Other\&quot; - a breakdown this long is not readable as a management view. Ask for a specific group, or a top-N, to go further.&quot;
+  ],
+  &quot;data_as_of&quot;: null,
+  &quot;measure&quot;: &quot;Net Position&quot;,
+  &quot;aggregation&quot;: &quot;sum&quot;,
+  &quot;rows_in_view&quot;: 19800,
+  &quot;rows_after_filters&quot;: 19800,
+  &quot;rows_returned&quot;: 25,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:34&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

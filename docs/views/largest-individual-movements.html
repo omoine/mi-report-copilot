@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Largest individual movements - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Top 20 business ledger txn records by Amount (Display)</h2>
+    <p class="showcase-desc">The twenty largest ledger transactions with counterparty, account and both local and display amounts.</p>
+    <p class="showcase-ask"><span>Asked as</span> List the twenty largest ledger transactions this month with counterparty, account, currency and amount.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Records</div><div class="hero-value">9,780</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Total Amount (Display)</div><div class="hero-value">438.1bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">78.5bn</div><div class="hero-note"></div></div></div>
+    
+    <p class="hint">Presented as a table; no chart was requested.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report lists the twenty largest ledger transactions for the current month, detailing the counterparty, account, currency, and transaction amount. The most significant transaction is with Nightjar Trust, amounting to EUR 78,493,469,220.94, which is notably larger than the others. Transactions in EUR appear frequently, with five entries, indicating a concentration in this currency. The operations team should particularly note the substantial transaction with Nightjar Trust, as well as the high volume of transactions involving the EUR currency.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Transaction Reference</th><th>Account</th><th>Counterparty</th><th>CCY (Local)</th><th>Amount (Display)</th></tr></thead><tbody><tr><td>CF260804 05517</td><td>708433561323</td><td>Nightjar Trust</td><td>EUR</td><td>78,493,469,220.94</td></tr><tr><td>CF260720 00113</td><td>205518767075</td><td>Zephyr Settlement Bank</td><td>CHF</td><td>49,914,303,537.49</td></tr><tr><td>CF260723 01257</td><td>459652462624</td><td>Kestrel Trust</td><td>EUR</td><td>42,718,568,393.92</td></tr><tr><td>CF260728 02568</td><td>748429794537</td><td>Yarrow Settlement Bank</td><td>CHF</td><td>41,703,073,997.83</td></tr><tr><td>CF260731 04472</td><td>780534966328</td><td>Ironbark Settlement Bank</td><td>USD</td><td>33,948,715,152.10</td></tr><tr><td>CF260729 03471</td><td>629056450089</td><td>Mallow Bank</td><td>USD</td><td>23,330,931,337.34</td></tr><tr><td>CF260727 02167</td><td>673347369101</td><td>Wrenfield Trust</td><td>EUR</td><td>23,251,254,047.87</td></tr><tr><td>CF260728 02353</td><td>969010649616</td><td>Vetchling Trust</td><td>CAD</td><td>19,160,287,264.18</td></tr><tr><td>CF260730 03679</td><td>331574865232</td><td>Bramble Commercial Bank</td><td>USD</td><td>17,038,713,791.96</td></tr><tr><td>CF260810 07344</td><td>816130532607</td><td>Yarrow Bank</td><td>SAR</td><td>16,567,546,698.74</td></tr><tr><td>CF260810 07276</td><td>967624358937</td><td>Kestrel Settlement Bank</td><td>EUR</td><td>14,287,379,843.09</td></tr><tr><td>CF260813 08452</td><td>903491859007</td><td>Thornbury Trust</td><td>EUR</td><td>12,390,264,109.32</td></tr><tr><td>CF260813 08630</td><td>375624995577</td><td>Larkspur Commercial Bank</td><td>USD</td><td>11,701,755,774.45</td></tr><tr><td>CF260804 05613</td><td>412668335906</td><td>Larkspur Clearing</td><td>CHF</td><td>8,842,525,377.14</td></tr><tr><td>CF260818 09516</td><td>151555391924</td><td>Alder Settlement Bank</td><td>CAD</td><td>8,537,632,435.41</td></tr><tr><td>CF260721 00595</td><td>674362799749</td><td>Granite Bank</td><td>EUR</td><td>8,418,114,708.73</td></tr><tr><td>CF260810 07562</td><td>165000330885</td><td>Alder Bank</td><td>HKD</td><td>7,416,463,392.34</td></tr><tr><td>CF260810 07470</td><td>920562913157</td><td>Mallow Trust</td><td>CNY</td><td>6,946,981,046.18</td></tr><tr><td>CF260812 08141</td><td>232234898923</td><td>Kestrel Trust</td><td>CAD</td><td>6,939,661,615.70</td></tr><tr><td>CF260722 01103</td><td>948477770990</td><td>Redstart Trust</td><td>EUR</td><td>6,476,525,637.23</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>The view is scoped to transactions from October 2023 onwards.</li><li>Amounts are displayed in GBP using static synthetic FX rates.</li></ul></div>
+    
+    <div class="showcase-block"><h3>Dependencies</h3><ul class="showcase-list"><li>Display currency is set to GBP.</li><li>Data classification: Synthetic / non-production.</li></ul></div>
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/largest-individual-movements.pdf" download>PDF</a><a class="dl" href="../assets/largest-individual-movements.md" download>Markdown</a><a class="dl" href="../assets/largest-individual-movements.xlsx" download>Excel</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;business_ledger&quot;,
+  &quot;sheet&quot;: &quot;Business Ledger Txn View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;list&quot;,
+  &quot;filters&quot;: [
+    {
+      &quot;column&quot;: &quot;Value Date&quot;,
+      &quot;operator&quot;: &quot;gte&quot;,
+      &quot;value&quot;: &quot;2023-10-01&quot;
+    }
+  ],
+  &quot;group_by&quot;: [],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [],
+  &quot;columns&quot;: [
+    &quot;Transaction Reference&quot;,
+    &quot;Account&quot;,
+    &quot;Counterparty&quot;,
+    &quot;CCY (Local)&quot;,
+    &quot;Amount (Display)&quot;
+  ],
+  &quot;sort_by&quot;: &quot;Amount (Display)&quot;,
+  &quot;limit&quot;: 20,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [],
+  &quot;data_as_of&quot;: &quot;2026-08-18T21:35:41&quot;,
+  &quot;measure&quot;: null,
+  &quot;aggregation&quot;: null,
+  &quot;rows_in_view&quot;: 9780,
+  &quot;rows_after_filters&quot;: 9780,
+  &quot;rows_returned&quot;: 20,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:57&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

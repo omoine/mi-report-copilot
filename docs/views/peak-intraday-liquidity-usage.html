@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peak intraday liquidity usage - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Peak intraday position by CCY (Local)</h2>
+    <p class="showcase-desc">Largest intraday position per currency per day, worst first, with the time it peaked and where the day closed. The BCBS 248 monitoring shape.</p>
+    <p class="showcase-ask"><span>Asked as</span> What was our peak intraday liquidity usage by currency? Show the cumulative net position through the day and where it peaked.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Largest intraday usage</div><div class="hero-value">-75.2bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Highest position</div><div class="hero-value">40.5bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Positions shown</div><div class="hero-value">15</div><div class="hero-note"></div></div></div>
+    
+    <p class="hint">Presented as a table; no chart was requested.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report presents the peak intraday liquidity usage by currency, detailing the cumulative net position throughout the day and the specific time at which the peak occurred. The most significant peak position was observed in EUR on 2026-08-04, reaching 40,516,770,638.14 at 19:56. The largest usage was recorded in USD on 2026-08-07, with a usage of -75,161,138,913.36 at 11:48. Operations should particularly note the substantial negative closing positions, such as -73,804,517,358.49 in USD on 2026-08-07, which may require further analysis.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Value Date</th><th>CCY (Local)</th><th>Peak position</th><th>Peak at</th><th>Largest usage</th><th>Usage at</th><th>Closing position</th><th>Movements</th></tr></thead><tbody><tr><td>2026-08-07</td><td>USD</td><td>3,651,980,700.34</td><td>08:54</td><td>-75,161,138,913.36</td><td>11:48</td><td>-73,804,517,358.49</td><td>141.00</td></tr><tr><td>2026-07-29</td><td>EUR</td><td>2,106,543,350.41</td><td>08:37</td><td>-71,676,533,031.68</td><td>14:29</td><td>-68,606,740,858.25</td><td>139.00</td></tr><tr><td>2026-08-03</td><td>EUR</td><td>251,592,717.14</td><td>11:05</td><td>-63,399,763,349.40</td><td>19:30</td><td>-63,364,620,089.02</td><td>104.00</td></tr><tr><td>2026-08-17</td><td>USD</td><td>127,125,042.50</td><td>06:00</td><td>-57,906,037,999.21</td><td>08:05</td><td>-54,057,939,663.63</td><td>113.00</td></tr><tr><td>2026-08-03</td><td>USD</td><td>260,907,051.29</td><td>05:02</td><td>-50,627,771,984.01</td><td>17:28</td><td>-48,908,513,422.11</td><td>160.00</td></tr><tr><td>2026-08-18</td><td>USD</td><td>453,456,524.04</td><td>06:21</td><td>-47,432,040,467.17</td><td>18:17</td><td>-47,139,267,688.18</td><td>131.00</td></tr><tr><td>2026-07-28</td><td>AUD</td><td>215,721,174.04</td><td>14:56</td><td>-45,071,690,080.94</td><td>15:34</td><td>-45,070,373,759.38</td><td>20.00</td></tr><tr><td>2026-08-04</td><td>USD</td><td>410,792,942.03</td><td>06:11</td><td>-44,075,049,100.09</td><td>18:04</td><td>-43,159,221,219.89</td><td>280.00</td></tr><tr><td>2026-08-04</td><td>EUR</td><td>40,516,770,638.14</td><td>19:56</td><td>-38,852,364,316.90</td><td>16:22</td><td>39,925,526,300.66</td><td>186.00</td></tr><tr><td>2026-07-23</td><td>CAD</td><td>69,564,550.69</td><td>07:33</td><td>-34,179,352,462.35</td><td>08:32</td><td>-33,814,112,659.61</td><td>19.00</td></tr><tr><td>2026-07-28</td><td>USD</td><td>338,903.71</td><td>02:00</td><td>-29,098,130,457.81</td><td>15:43</td><td>-26,927,847,695.11</td><td>164.00</td></tr><tr><td>2026-08-12</td><td>EUR</td><td>-5,936,766.92</td><td>06:29</td><td>-29,005,116,174.55</td><td>16:57</td><td>-27,991,283,070.40</td><td>80.00</td></tr><tr><td>2026-07-24</td><td>USD</td><td>11,744,692.18</td><td>06:02</td><td>-24,322,955,393.81</td><td>19:44</td><td>-24,322,428,842.71</td><td>114.00</td></tr><tr><td>2026-07-22</td><td>EUR</td><td>-591,724,818.98</td><td>01:19</td><td>-21,214,615,997.93</td><td>13:58</td><td>-13,630,119,794.89</td><td>76.00</td></tr><tr><td>2026-07-29</td><td>USD</td><td>22,073,081,850.79</td><td>10:00</td><td>-17,056,617,978.08</td><td>16:18</td><td>-13,188,868,933.06</td><td>180.00</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>Showing the 15 largest usage positions of 556 day/group combinations, worst first. Ask for a specific currency or date to see the rest.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>Amounts are translated using static synthetic FX rates to GBP.</li><li>The data is synthetic and non-production.</li></ul></div>
+    
+    <div class="showcase-block"><h3>Dependencies</h3><ul class="showcase-list"><li>The calculation of peak intraday liquidity usage depends on the completeness of transaction data within the specified date range.</li></ul></div>
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/peak-intraday-liquidity-usage.pdf" download>PDF</a><a class="dl" href="../assets/peak-intraday-liquidity-usage.md" download>Markdown</a><a class="dl" href="../assets/peak-intraday-liquidity-usage.xlsx" download>Excel</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;business_ledger&quot;,
+  &quot;sheet&quot;: &quot;Business Ledger Txn View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;peak&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: null,
+  &quot;limit&quot;: 15,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [
+    &quot;Showing the 15 largest usage positions of 556 day/group combinations, worst first. Ask for a specific currency or date to see the rest.&quot;
+  ],
+  &quot;data_as_of&quot;: &quot;2026-08-18T21:35:41&quot;,
+  &quot;measure&quot;: null,
+  &quot;aggregation&quot;: null,
+  &quot;rows_in_view&quot;: 9780,
+  &quot;rows_after_filters&quot;: 9780,
+  &quot;rows_returned&quot;: 15,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:30:25&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

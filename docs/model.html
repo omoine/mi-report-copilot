@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data model - MI Report Copilot</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">The tables behind the views, and the columns that join them.</p>
+  </div>
+  <div class="header-actions">
+    
+    <a class="switch-btn" href="index.html">Views</a>
+    <a class="switch-btn" href="model.html">Data model</a>
+  </div>
+</header>
+<section id="modelView" class="model-view">
+  <div class="model-bar">
+    <button id="modelBack" class="secondary" hidden>&larr; All tables</button>
+    <div class="model-crumb" id="modelCrumb">Data architecture</div>
+    <input type="search" id="modelSearch" placeholder="Find a table&hellip;"
+           autocomplete="off" aria-label="Find a table">
+  </div>
+  <div id="modelOverview" class="model-overview">loading&hellip;</div>
+  <div id="modelDetail" class="model-detail" hidden></div>
+</section>
+<script>
+/* The same view as the application, reading the payloads as files. */
+window.MODEL_SOURCE = {
+  overview: 'model/index.json',
+  table: (name) => 'model/' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.json',
+};
+</script>
+<script src="model.js"></script>
+</body>
+</html>

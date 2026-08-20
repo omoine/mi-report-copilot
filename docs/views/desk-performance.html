@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk performance - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Sum of Amount (Display) by Sub Branch</h2>
+    <p class="showcase-desc">Ledger flow by desk with each desk&#x27;s share. States that legal entity cannot be attributed to the ledger view.</p>
+    <p class="showcase-ask"><span>Asked as</span> Compare our desks: total ledger flow by sub branch, with each desk&#x27;s share, and break it down by legal entity as well.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total Amount (Display)</div><div class="hero-value">-283.6bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">-244.1bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">69%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/desk-performance-chart.png" alt="Sum of Amount (Display) by Sub Branch"></div>
+    <p class="hint">% of gross Amount (Display) is a percentage and cannot share an axis with the amounts, so it is in the table only.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report provides a comparison of total ledger flow by sub branch, highlighting each desk&#x27;s share of the total. The sub branch BRYG has the most significant negative ledger flow, amounting to -244,140,158,034.87, which constitutes 43.85% of the gross amount. In contrast, BRBX shows the highest positive ledger flow at 72,533,247,792.61, representing 13.03% of the total. The substantial negative flow in BRYG is a notable outlier and should be examined further by the operations team.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Sub Branch</th><th>Amount (Display)</th><th>% of gross Amount (Display)</th></tr></thead><tbody><tr><td>BRBX</td><td>72,533,247,792.61</td><td>13.03</td></tr><tr><td>BRCC</td><td>64,042,938,012.02</td><td>11.50</td></tr><tr><td>BRGL</td><td>-994,939,663.03</td><td>0.18</td></tr><tr><td>BRGX</td><td>-30,186,619,873.56</td><td>5.42</td></tr><tr><td>BRAA</td><td>-38,927,227,926.71</td><td>6.99</td></tr><tr><td>BRMD</td><td>-40,549,013,038.12</td><td>7.28</td></tr><tr><td>BRNK</td><td>-65,413,324,590.13</td><td>11.75</td></tr><tr><td>BRYG</td><td>-244,140,158,034.87</td><td>43.85</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>Shares are calculated on gross flow because the figures include both debits and credits: as a share of the net total they would exceed 100% and could be negative.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>The amounts are translated using static synthetic FX rates to GBP.</li><li>This is synthetic, non-production data.</li></ul></div>
+    
+    
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/desk-performance.pdf" download>PDF</a><a class="dl" href="../assets/desk-performance.md" download>Markdown</a><a class="dl" href="../assets/desk-performance.xlsx" download>Excel</a><a class="dl" href="../assets/desk-performance.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;business_ledger&quot;,
+  &quot;sheet&quot;: &quot;Business Ledger Txn View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [
+    &quot;Sub Branch&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;sum of Amount (Display)&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: null,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [
+    &quot;Shares are calculated on gross flow because the figures include both debits and credits: as a share of the net total they would exceed 100% and could be negative.&quot;
+  ],
+  &quot;data_as_of&quot;: &quot;2026-08-18T21:35:41&quot;,
+  &quot;measure&quot;: &quot;Amount (Display)&quot;,
+  &quot;aggregation&quot;: &quot;sum&quot;,
+  &quot;rows_in_view&quot;: 9780,
+  &quot;rows_after_filters&quot;: 9780,
+  &quot;rows_returned&quot;: 8,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:49&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

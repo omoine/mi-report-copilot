@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balance volatility by account - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Distribution of Swing (Display) by Account</h2>
+    <p class="showcase-desc">Accounts ranked by how much their daily balance swings. Volatile balances are where buffers are set and forecasting is hardest.</p>
+    <p class="showcase-ask"><span>Asked as</span> Which client accounts have the most volatile daily balance swing? Show the spread of their daily swing, largest first.</p>
+    
+    <div class="chart-wrap"><img src="../assets/balance-volatility-by-account-chart.png" alt="Distribution of Swing (Display) by Account"></div>
+    <p class="hint">Box shows the middle 50% of values, the line inside is the median, and the dots are outliers beyond 1.5x the interquartile range.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report identifies client accounts with the most volatile daily balance swings, ranked by the spread of their daily swings. The account with the largest swing is 291830171278, showing a maximum swing range from -83,009,992.37 to 88,886,454.01, with a standard deviation of 28,134,547.30. Notably, account 205205184376 also exhibits significant volatility, with a range from -80,741,446.91 to 92,896,812.62 and a standard deviation of 26,852,240.17. Operations should closely monitor these accounts due to their high volatility, which could impact liquidity management.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Account</th><th>count</th><th>mean</th><th>median</th><th>std</th><th>min</th><th>max</th></tr></thead><tbody><tr><td>291830171278</td><td>22.00</td><td>35,004.65</td><td>0.00</td><td>28,134,547.30</td><td>-83,009,992.37</td><td>88,886,454.01</td></tr><tr><td>205205184376</td><td>22.00</td><td>626,694.84</td><td>0.00</td><td>26,852,240.17</td><td>-80,741,446.91</td><td>92,896,812.62</td></tr><tr><td>944794220428</td><td>22.00</td><td>-2,070,961.49</td><td>0.00</td><td>24,622,423.63</td><td>-92,930,034.48</td><td>63,066,025.42</td></tr><tr><td>849109355298</td><td>22.00</td><td>9,115,596.23</td><td>0.00</td><td>24,002,943.57</td><td>-15,558,342.95</td><td>72,776,105.60</td></tr><tr><td>909098465252</td><td>22.00</td><td>-6,139,568.63</td><td>0.00</td><td>23,838,052.75</td><td>-89,918,456.29</td><td>13,669,728.29</td></tr><tr><td>539031262681</td><td>22.00</td><td>3,027,443.65</td><td>0.00</td><td>20,717,707.62</td><td>-24,237,989.77</td><td>87,507,932.44</td></tr><tr><td>320114759233</td><td>22.00</td><td>3,873,266.21</td><td>0.00</td><td>20,353,372.35</td><td>-34,596,831.63</td><td>75,705,587.08</td></tr><tr><td>840969010950</td><td>22.00</td><td>630,596.92</td><td>0.00</td><td>20,066,868.76</td><td>-55,203,907.49</td><td>71,652,945.73</td></tr><tr><td>910275754061</td><td>22.00</td><td>-2,062,229.50</td><td>0.00</td><td>19,835,916.14</td><td>-67,029,820.90</td><td>39,940,515.19</td></tr><tr><td>555572694805</td><td>22.00</td><td>6,351,868.93</td><td>0.00</td><td>19,214,341.27</td><td>-5,993,655.77</td><td>79,658,377.98</td></tr><tr><td>225430746975</td><td>22.00</td><td>4,363,946.91</td><td>0.00</td><td>18,755,348.12</td><td>-347,398.74</td><td>88,011,538.05</td></tr><tr><td>967624358937</td><td>22.00</td><td>3,538,532.76</td><td>0.00</td><td>18,709,644.54</td><td>-8,148,360.98</td><td>86,929,125.15</td></tr><tr><td>820967287796</td><td>22.00</td><td>4,996,493.58</td><td>3,729.24</td><td>18,412,630.56</td><td>-16,653,686.67</td><td>79,395,887.73</td></tr><tr><td>118308640809</td><td>22.00</td><td>2,169,885.16</td><td>761.63</td><td>18,383,393.77</td><td>-29,243,500.07</td><td>79,619,914.62</td></tr><tr><td>389836464400</td><td>22.00</td><td>4,168,791.46</td><td>0.00</td><td>18,289,408.64</td><td>-1,383,483.86</td><td>85,894,358.50</td></tr><tr><td>947625227984</td><td>22.00</td><td>5,038,719.77</td><td>23,668.68</td><td>17,889,181.38</td><td>-2,078,441.11</td><td>83,057,533.27</td></tr><tr><td>263732603516</td><td>22.00</td><td>-4,331,517.94</td><td>0.00</td><td>17,802,663.57</td><td>-83,769,596.65</td><td>139,831.05</td></tr><tr><td>793184613977</td><td>22.00</td><td>2,084,933.71</td><td>0.00</td><td>17,688,340.10</td><td>-33,964,121.22</td><td>61,091,181.44</td></tr><tr><td>385672994728</td><td>22.00</td><td>-3,734,730.09</td><td>0.00</td><td>17,675,120.32</td><td>-82,584,041.45</td><td>5,090,611.83</td></tr><tr><td>542779002005</td><td>22.00</td><td>-2,137,356.17</td><td>0.00</td><td>17,421,309.71</td><td>-76,221,726.21</td><td>20,901,115.74</td></tr><tr><td>714506164459</td><td>22.00</td><td>-2,913,312.37</td><td>0.00</td><td>17,410,722.19</td><td>-79,234,036.86</td><td>15,481,123.11</td></tr><tr><td>205518767075</td><td>22.00</td><td>683,930.76</td><td>0.00</td><td>17,359,106.39</td><td>-63,087,440.66</td><td>36,862,515.54</td></tr><tr><td>118234992610</td><td>22.00</td><td>3,438,421.70</td><td>0.00</td><td>17,234,030.56</td><td>-4,665,527.34</td><td>80,146,247.80</td></tr><tr><td>921847628421</td><td>22.00</td><td>3,187,165.81</td><td>523.98</td><td>17,010,076.42</td><td>-16,415,683.02</td><td>77,495,656.24</td></tr><tr><td>845072216498</td><td>22.00</td><td>3,808,328.06</td><td>0.00</td><td>16,996,540.55</td><td>-23,943,134.56</td><td>44,036,573.27</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>Showing the 25 most variable of 900 groups, by standard deviation.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>The Swing (Display) is calculated using static synthetic FX rates.</li><li>Data classification: synthetic, non-production.</li></ul></div>
+    
+    
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/balance-volatility-by-account.pdf" download>PDF</a><a class="dl" href="../assets/balance-volatility-by-account.md" download>Markdown</a><a class="dl" href="../assets/balance-volatility-by-account.xlsx" download>Excel</a><a class="dl" href="../assets/balance-volatility-by-account.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;client&quot;,
+  &quot;sheet&quot;: &quot;Client View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;distribution&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;distribution of Swing (Display)&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: &quot;Swing (Display)&quot;,
+  &quot;limit&quot;: 10,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [
+    &quot;Showing the 25 most variable of 900 groups, by standard deviation.&quot;
+  ],
+  &quot;data_as_of&quot;: null,
+  &quot;measure&quot;: &quot;Swing (Display)&quot;,
+  &quot;aggregation&quot;: &quot;distribution&quot;,
+  &quot;rows_in_view&quot;: 19800,
+  &quot;rows_after_filters&quot;: 19800,
+  &quot;rows_returned&quot;: 25,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:26&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

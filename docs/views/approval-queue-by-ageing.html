@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Approval queue by ageing - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Count of Value Amount (Display) by Waiting band - Transfer Status is PENDING_APPROVAL</h2>
+    <p class="showcase-desc">Value awaiting approval, banded by how long it has been waiting. A snapshot of how bad the queue is now.</p>
+    <p class="showcase-ask"><span>Asked as</span> What is sitting in the approval queue, and how long has it been waiting? I want to see the value at risk in each ageing band.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total count</div><div class="hero-value">207</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">198</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/approval-queue-by-ageing-chart.png" alt="Count of Value Amount (Display) by Waiting band - Transfer Status is PENDING_APPROVAL"></div>
+    <p class="hint">count peaks at 198, against 27.1bn for the largest series, so plotting it would be a flat line on the axis. It is in the table.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report displays pending transfers awaiting approval, categorized by how long they have been in the queue. There are 198 transfers that have been waiting for over 24 hours, with a total value at risk of 27,087,807,059.43. In the 4-24 hour waiting band, there are 9 transfers with a value at risk of 1,211,420,382.62. The majority of the value at risk is concentrated in the over 24-hour band, which may warrant closer examination to ensure timely processing and mitigate potential risks.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Waiting band</th><th>count</th><th>Value Amount (Display)</th></tr></thead><tbody><tr><td>over 24h</td><td>198.00</td><td>27,087,807,059.43</td></tr><tr><td>4-24h</td><td>9.00</td><td>1,211,420,382.62</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>The view is scoped to transfers pending approval as of the most recent data timestamp.</li><li>The value amounts are in GBP, using static synthetic FX rates.</li><li>Data classification: synthetic, non-production.</li></ul></div>
+    
+    
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/approval-queue-by-ageing.pdf" download>PDF</a><a class="dl" href="../assets/approval-queue-by-ageing.md" download>Markdown</a><a class="dl" href="../assets/approval-queue-by-ageing.xlsx" download>Excel</a><a class="dl" href="../assets/approval-queue-by-ageing.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;nostro_transfer&quot;,
+  &quot;sheet&quot;: &quot;Nostro Transfer View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [
+    {
+      &quot;column&quot;: &quot;Transfer Status&quot;,
+      &quot;operator&quot;: &quot;eq&quot;,
+      &quot;value&quot;: &quot;PENDING_APPROVAL&quot;
+    }
+  ],
+  &quot;group_by&quot;: [
+    &quot;Waiting band&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;count of rows&quot;,
+    &quot;sum of Value Amount (Display)&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: null,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [
+    &quot;Waiting&quot;,
+    &quot;Waiting band&quot;
+  ],
+  &quot;currency_corrections&quot;: [],
+  &quot;data_as_of&quot;: &quot;2026-08-19T01:21:56&quot;,
+  &quot;measure&quot;: &quot;&quot;,
+  &quot;aggregation&quot;: &quot;count&quot;,
+  &quot;rows_in_view&quot;: 4781,
+  &quot;rows_after_filters&quot;: 207,
+  &quot;rows_returned&quot;: 2,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:30:05&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

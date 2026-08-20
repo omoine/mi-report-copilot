@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Funding efficiency - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Sum of Amount (Display) by Transaction Timestamp (hour), Debit/Credit Mark</h2>
+    <p class="showcase-desc">Credits against debits by hour for the most recent day, with a running total, showing whether inflows arrived before outflows.</p>
+    <p class="showcase-ask"><span>Asked as</span> For the most recent day, show credits and debits by hour with the running net position, so I can see whether inflows arrived before outflows.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total CR</div><div class="hero-value">26.0bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">10.6bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">59%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/funding-efficiency-chart.png" alt="Sum of Amount (Display) by Transaction Timestamp (hour), Debit/Credit Mark"></div>
+    <p class="hint">vs average % is a percentage and cannot share an axis with the amounts, so it is in the table only. Only the 3 largest measures are charted; plotting more would need colours that cannot be told apart reliably. The table shows all of them.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report provides a detailed hourly breakdown of credits and debits for the most recent day, along with the cumulative net position. The most notable pattern is the significant credit inflow at 07:00, totaling 10,570,319,665.49, which stands out as an unusual spike compared to other hours. This large inflow at 07:00 temporarily improved the net position, but was followed by a substantial debit of -47,617,516,429.05 at 08:00, which significantly impacted the cumulative debit total. Operations should closely examine the transactions at 07:00 and 08:00 to understand the cause of these large movements and their impact on liquidity management.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Transaction Timestamp (hour)</th><th>CR</th><th>DR</th><th>Cumulative CR</th><th>Cumulative DR</th><th>vs average %</th><th>Unusual</th></tr></thead><tbody><tr><td>2026-08-18 01:00</td><td>0.00</td><td>-102,690,662.51</td><td>0.00</td><td>-102,690,662.51</td><td>-100.00</td><td></td></tr><tr><td>2026-08-18 02:00</td><td>119,452,086.85</td><td>-97,509,558.16</td><td>119,452,086.85</td><td>-200,200,220.67</td><td>-90.40</td><td></td></tr><tr><td>2026-08-18 03:00</td><td>393,276,712.85</td><td>0.00</td><td>512,728,799.70</td><td>-200,200,220.67</td><td>-68.30</td><td></td></tr><tr><td>2026-08-18 04:00</td><td>10,861,398.58</td><td>0.00</td><td>523,590,198.29</td><td>-200,200,220.67</td><td>-99.10</td><td></td></tr><tr><td>2026-08-18 05:00</td><td>508,068.20</td><td>-3,361,638.06</td><td>524,098,266.49</td><td>-203,561,858.73</td><td>-100.00</td><td></td></tr><tr><td>2026-08-18 06:00</td><td>111,107,226.50</td><td>-1,570,526,672.26</td><td>635,205,492.98</td><td>-1,774,088,530.99</td><td>-91.00</td><td></td></tr><tr><td>2026-08-18 07:00</td><td>10,570,319,665.49</td><td>-1,466,296,259.02</td><td>11,205,525,158.47</td><td>-3,240,384,790.02</td><td>752.50</td><td>yes</td></tr><tr><td>2026-08-18 08:00</td><td>1,997,041,763.76</td><td>-47,617,516,429.05</td><td>13,202,566,922.23</td><td>-50,857,901,219.07</td><td>61.10</td><td></td></tr><tr><td>2026-08-18 09:00</td><td>1,799,679,116.80</td><td>-569,785,082.66</td><td>15,002,246,039.03</td><td>-51,427,686,301.73</td><td>45.20</td><td></td></tr><tr><td>2026-08-18 10:00</td><td>2,717,233,523.42</td><td>-1,206,548,196.41</td><td>17,719,479,562.45</td><td>-52,634,234,498.14</td><td>119.20</td><td></td></tr><tr><td>2026-08-18 11:00</td><td>1,485,146,750.64</td><td>-1,871,763,472.12</td><td>19,204,626,313.09</td><td>-54,505,997,970.26</td><td>19.80</td><td></td></tr><tr><td>2026-08-18 12:00</td><td>42,124,105.48</td><td>-332,962,369.25</td><td>19,246,750,418.57</td><td>-54,838,960,339.51</td><td>-96.60</td><td></td></tr><tr><td>2026-08-18 13:00</td><td>2,162,085,104.36</td><td>-4,620,001,824.21</td><td>21,408,835,522.93</td><td>-59,458,962,163.72</td><td>74.40</td><td></td></tr><tr><td>2026-08-18 14:00</td><td>2,023,916,548.24</td><td>-1,490,175,877.08</td><td>23,432,752,071.17</td><td>-60,949,138,040.79</td><td>63.20</td><td></td></tr><tr><td>2026-08-18 15:00</td><td>783,619,335.39</td><td>-795,312,765.11</td><td>24,216,371,406.55</td><td>-61,744,450,805.90</td><td>-36.80</td><td></td></tr><tr><td>2026-08-18 16:00</td><td>1,117,785,153.90</td><td>-1,341,060,157.55</td><td>25,334,156,560.45</td><td>-63,085,510,963.45</td><td>-9.80</td><td></td></tr><tr><td>2026-08-18 17:00</td><td>355,654,945.07</td><td>-2,783,445,747.00</td><td>25,689,811,505.52</td><td>-65,868,956,710.45</td><td>-71.30</td><td></td></tr><tr><td>2026-08-18 18:00</td><td>319,009,628.14</td><td>-340,373,202.52</td><td>26,008,821,133.66</td><td>-66,209,329,912.97</td><td>-74.30</td><td></td></tr><tr><td>2026-08-18 19:00</td><td>23,225,512.91</td><td>-53,119,529.36</td><td>26,032,046,646.57</td><td>-66,262,449,442.33</td><td>-98.10</td><td></td></tr><tr><td>2026-08-18 20:00</td><td>4,871,226.60</td><td>-51,380,566.13</td><td>26,036,917,873.18</td><td>-66,313,830,008.45</td><td>-99.60</td><td></td></tr><tr><td>2026-08-18 21:00</td><td>0.00</td><td>-2,002,547.99</td><td>26,036,917,873.18</td><td>-66,315,832,556.44</td><td>-100.00</td><td></td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>An hourly profile spanning 22 days is not an intraday view, so this covers the most recent day in the data (18 Aug 2026). Ask for a specific date, or for a daily breakdown, to see the whole period.</li><li>1 of 21 periods sit more than two standard deviations from the period average of 1,239,853,232 and are marked as unusual.</li><li>The view is scoped to the most recent day in the data, which is 2026-08-18.</li><li>The running net position is calculated using display currency (GBP).</li><li>Data completeness depends on whether all transactions for the day have been received.</li></ul></div>
+    
+    <div class="showcase-block"><h3>Dependencies</h3><ul class="showcase-list"><li>The calculation of the running net position depends on the derived column formula.</li></ul></div>
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/funding-efficiency.pdf" download>PDF</a><a class="dl" href="../assets/funding-efficiency.md" download>Markdown</a><a class="dl" href="../assets/funding-efficiency.xlsx" download>Excel</a><a class="dl" href="../assets/funding-efficiency.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;business_ledger&quot;,
+  &quot;sheet&quot;: &quot;Business Ledger Txn View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [
+    &quot;Transaction Timestamp (hour)&quot;
+  ],
+  &quot;time_bucket&quot;: {
+    &quot;column&quot;: &quot;Transaction Timestamp&quot;,
+    &quot;granularity&quot;: &quot;hour&quot;
+  },
+  &quot;measures&quot;: [
+    &quot;sum of Amount (Display)&quot;,
+    &quot;split by Debit/Credit Mark&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: &quot;Transaction Timestamp (hour)&quot;,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [
+    &quot;1 of 21 periods sit more than two standard deviations from the period average of 1,239,853,232 and are marked as unusual.&quot;,
+    &quot;An hourly profile spanning 22 days is not an intraday view, so this covers the most recent day in the data (18 Aug 2026). Ask for a specific date, or for a daily breakdown, to see the whole period.&quot;
+  ],
+  &quot;data_as_of&quot;: &quot;2026-08-18T21:35:41&quot;,
+  &quot;measure&quot;: &quot;Amount (Display)&quot;,
+  &quot;aggregation&quot;: &quot;sum&quot;,
+  &quot;rows_in_view&quot;: 9780,
+  &quot;rows_after_filters&quot;: 402,
+  &quot;rows_returned&quot;: 21,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:45&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

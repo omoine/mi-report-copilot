@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily flow trend - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Sum of Value Amount by Value Date (day)</h2>
+    <p class="showcase-desc">Daily transfer value across the period against the period average, with unusual days marked.</p>
+    <p class="showcase-ask"><span>Asked as</span> Show total daily transfer value across the month so I can see which days were unusual.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total Value Amount (Display)</div><div class="hero-value">1,166.4bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">207.4bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">35%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/daily-flow-trend-chart.png" alt="Sum of Value Amount by Value Date (day)"></div>
+    <p class="hint">vs average % is a percentage and cannot share an axis with the amounts, so it is in the table only.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report provides a daily breakdown of total transfer values over the specified period, highlighting deviations from the average. The most notable day is August 4, 2026, with a transfer value of 207,385,479,699.57, which is 291.10% above the average, marked as unusual. This day stands out significantly compared to others, with the next highest value being July 29, 2026, at 108,139,872,566.63, which is 104.00% above the average. Operations should closely examine the transactions on August 4, 2026, to understand the cause of this substantial increase.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Value Date (day)</th><th>Value Amount (Display)</th><th>vs average %</th><th>Unusual</th></tr></thead><tbody><tr><td>2026-07-20</td><td>23,712,009,066.32</td><td>-55.30</td><td></td></tr><tr><td>2026-07-21</td><td>79,698,523,613.55</td><td>50.30</td><td></td></tr><tr><td>2026-07-22</td><td>47,516,356,985.01</td><td>-10.40</td><td></td></tr><tr><td>2026-07-23</td><td>18,134,841,533.76</td><td>-65.80</td><td></td></tr><tr><td>2026-07-24</td><td>95,374,346,372.42</td><td>79.90</td><td></td></tr><tr><td>2026-07-27</td><td>26,572,619,921.00</td><td>-49.90</td><td></td></tr><tr><td>2026-07-28</td><td>70,753,102,844.56</td><td>33.40</td><td></td></tr><tr><td>2026-07-29</td><td>108,139,872,566.63</td><td>104.00</td><td></td></tr><tr><td>2026-07-30</td><td>31,258,367,571.00</td><td>-41.00</td><td></td></tr><tr><td>2026-07-31</td><td>44,188,619,527.80</td><td>-16.70</td><td></td></tr><tr><td>2026-08-03</td><td>39,603,127,051.16</td><td>-25.30</td><td></td></tr><tr><td>2026-08-04</td><td>207,385,479,699.57</td><td>291.10</td><td>yes</td></tr><tr><td>2026-08-05</td><td>9,879,547,348.61</td><td>-81.40</td><td></td></tr><tr><td>2026-08-06</td><td>34,739,658,692.39</td><td>-34.50</td><td></td></tr><tr><td>2026-08-07</td><td>18,483,460,753.93</td><td>-65.10</td><td></td></tr><tr><td>2026-08-10</td><td>14,567,458,591.77</td><td>-72.50</td><td></td></tr><tr><td>2026-08-11</td><td>94,767,143,800.73</td><td>78.70</td><td></td></tr><tr><td>2026-08-12</td><td>24,339,798,938.75</td><td>-54.10</td><td></td></tr><tr><td>2026-08-13</td><td>31,023,108,227.22</td><td>-41.50</td><td></td></tr><tr><td>2026-08-14</td><td>32,353,137,983.95</td><td>-39.00</td><td></td></tr><tr><td>2026-08-17</td><td>82,125,921,162.68</td><td>54.90</td><td></td></tr><tr><td>2026-08-18</td><td>31,810,912,598.18</td><td>-40.00</td><td></td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>1 of 22 periods sit more than two standard deviations from the period average of 53,019,427,948 and are marked as unusual.</li><li>&#x27;Value Amount&#x27; is held in each row&#x27;s own currency and this result spans 27 currencies, so adding it would combine unlike units. &#x27;Value Amount (Display)&#x27; was used instead, which is FX-translated to a single currency.</li><li>The amounts are in different currencies and are therefore not directly comparable or summable.</li><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li></ul></div>
+    
+    <div class="showcase-block"><h3>Dependencies</h3><ul class="showcase-list"><li>The data is synthetic and non-production.</li></ul></div>
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/daily-flow-trend.pdf" download>PDF</a><a class="dl" href="../assets/daily-flow-trend.md" download>Markdown</a><a class="dl" href="../assets/daily-flow-trend.xlsx" download>Excel</a><a class="dl" href="../assets/daily-flow-trend.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;nostro_transfer&quot;,
+  &quot;sheet&quot;: &quot;Nostro Transfer View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [
+    &quot;Value Date (day)&quot;
+  ],
+  &quot;time_bucket&quot;: {
+    &quot;column&quot;: &quot;Value Date&quot;,
+    &quot;granularity&quot;: &quot;day&quot;
+  },
+  &quot;measures&quot;: [
+    &quot;sum of Value Amount (Display)&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: &quot;Value Date (day)&quot;,
+  &quot;limit&quot;: null,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [
+    &quot;&#x27;Value Amount&#x27; is held in each row&#x27;s own currency and this result spans 27 currencies, so adding it would combine unlike units. &#x27;Value Amount (Display)&#x27; was used instead, which is FX-translated to a single currency.&quot;,
+    &quot;1 of 22 periods sit more than two standard deviations from the period average of 53,019,427,948 and are marked as unusual.&quot;
+  ],
+  &quot;data_as_of&quot;: &quot;2026-08-19T01:21:56&quot;,
+  &quot;measure&quot;: &quot;Value Amount (Display)&quot;,
+  &quot;aggregation&quot;: &quot;sum&quot;,
+  &quot;rows_in_view&quot;: 4781,
+  &quot;rows_after_filters&quot;: 4781,
+  &quot;rows_returned&quot;: 22,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:29:58&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>

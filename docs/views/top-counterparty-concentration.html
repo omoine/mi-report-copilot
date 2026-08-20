@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Top counterparty concentration - MI Report Copilot</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../showcase.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+<header>
+  <div>
+    <div class="eyebrow">Intraday Liquidity</div>
+    <h1>MI Report <em>Copilot</em></h1>
+    <p class="sub">A published snapshot. Figures were computed at build time.</p>
+  </div>
+  <div class="header-actions">
+    <a class="crumb-back" href="../index.html">&larr; All views</a>
+    <a class="switch-btn" href="../index.html">Views</a>
+    <a class="switch-btn" href="../model.html">Data model</a>
+  </div>
+</header>
+<main class="showcase">
+  <div class="panel">
+    <div class="who">Report</div>
+    <h2>Sum of Amount (Display) by Counterparty</h2>
+    <p class="showcase-desc">The ten counterparties carrying most ledger flow, with their share of the total.</p>
+    <p class="showcase-ask"><span>Asked as</span> Which counterparties account for the largest share of ledger flow? Show the top ten with their share of the total.</p>
+    <div class="hero-row"><div class="hero"><div class="hero-label">Total Amount (Display)</div><div class="hero-value">287.8bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Largest</div><div class="hero-value">74.0bn</div><div class="hero-note"></div></div><div class="hero"><div class="hero-label">Concentration</div><div class="hero-value">61%</div><div class="hero-note"></div></div></div>
+    <div class="chart-wrap"><img src="../assets/top-counterparty-concentration-chart.png" alt="Sum of Amount (Display) by Counterparty"></div>
+    <p class="hint">% of total Amount (Display) is a percentage and cannot share an axis with the amounts, so it is in the table only.</p>
+    <div class="showcase-block"><h3>Commentary</h3><p>The report identifies the top ten counterparties contributing to the total ledger flow, with Nightjar Trust leading at 25.72% of the total. Zephyr Settlement Bank and Kestrel Trust follow, accounting for 18.80% and 16.60%, respectively. These three counterparties alone represent over 60% of the total ledger flow, indicating a significant concentration among them. Operations should particularly note the dominance of Nightjar Trust, as its transactions constitute over a quarter of the total flow.</p></div>
+    <div class="tablewrap extract"><table><thead><tr><th>Counterparty</th><th>Amount (Display)</th><th>% of total Amount (Display)</th></tr></thead><tbody><tr><td>Nightjar Trust</td><td>74,022,638,054.77</td><td>25.72</td></tr><tr><td>Zephyr Settlement Bank</td><td>54,108,323,920.02</td><td>18.80</td></tr><tr><td>Kestrel Trust</td><td>47,768,593,382.49</td><td>16.60</td></tr><tr><td>Ironbark Settlement Bank</td><td>31,604,464,455.66</td><td>10.98</td></tr><tr><td>Wrenfield Trust</td><td>18,492,103,189.51</td><td>6.42</td></tr><tr><td>Larkspur Commercial Bank</td><td>16,220,479,750.53</td><td>5.64</td></tr><tr><td>Kestrel Settlement Bank</td><td>14,852,611,968.76</td><td>5.16</td></tr><tr><td>Vetchling Trust</td><td>13,941,997,099.89</td><td>4.84</td></tr><tr><td>Granite Bank</td><td>9,365,898,488.50</td><td>3.25</td></tr><tr><td>Mallow Trust</td><td>7,454,667,883.15</td><td>2.59</td></tr></tbody></table></div>
+    <div class="showcase-block"><h3>Limitations of this view</h3><ul class="showcase-list"><li>The view is scoped to the value date range from 2026-07-20 to 2026-08-18.</li><li>Amounts are translated using static synthetic FX rates to GBP.</li><li>This is synthetic, non-production data.</li></ul></div>
+    
+    
+    <div class="showcase-block"><h3>Downloads</h3>
+      <div class="dl-row"><a class="dl" href="../assets/top-counterparty-concentration.pdf" download>PDF</a><a class="dl" href="../assets/top-counterparty-concentration.md" download>Markdown</a><a class="dl" href="../assets/top-counterparty-concentration.xlsx" download>Excel</a><a class="dl" href="../assets/top-counterparty-concentration.svg" download>Chart (SVG)</a></div>
+      <p class="hint">The Markdown documents everything considered, so a reader
+         can hand it to an AI and ask follow-up questions about this view.</p>
+    </div>
+    <details class="prov-details"><summary>How this was produced</summary>
+      <pre class="prov-json">{
+  &quot;view&quot;: &quot;business_ledger&quot;,
+  &quot;sheet&quot;: &quot;Business Ledger Txn View&quot;,
+  &quot;source_file&quot;: &quot;synthetic_liquidity_month.xlsx&quot;,
+  &quot;mode&quot;: &quot;aggregate&quot;,
+  &quot;filters&quot;: [],
+  &quot;group_by&quot;: [
+    &quot;Counterparty&quot;
+  ],
+  &quot;time_bucket&quot;: null,
+  &quot;measures&quot;: [
+    &quot;sum of Amount (Display)&quot;
+  ],
+  &quot;columns&quot;: [],
+  &quot;sort_by&quot;: &quot;Amount (Display)&quot;,
+  &quot;limit&quot;: 10,
+  &quot;join&quot;: null,
+  &quot;derived&quot;: [],
+  &quot;currency_corrections&quot;: [],
+  &quot;data_as_of&quot;: &quot;2026-08-18T21:35:41&quot;,
+  &quot;measure&quot;: &quot;Amount (Display)&quot;,
+  &quot;aggregation&quot;: &quot;sum&quot;,
+  &quot;rows_in_view&quot;: 9780,
+  &quot;rows_after_filters&quot;: 9780,
+  &quot;rows_returned&quot;: 10,
+  &quot;executed_at&quot;: &quot;2026-08-20T11:30:13&quot;
+}</pre>
+    </details>
+  </div>
+</main>
+
+</body>
+</html>
