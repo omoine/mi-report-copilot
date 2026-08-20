@@ -19,7 +19,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `client.Account`, `business_ledger.Account`, `nostro_transfer.Source Account`, `nostro_transfer.Target Account`
   
 **Grain:** one row per account number  
-**Rows generated:** 969
+**Rows generated:** 920
 
 | Attribute | Notes |
 |---|---|
@@ -41,7 +41,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `business_ledger.Counterparty`
   
 **Grain:** one row per counterparty  
-**Rows generated:** 55
+**Rows generated:** 77
 
 | Attribute | Notes |
 |---|---|
@@ -62,7 +62,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `nostro_transfer.Source Account Venue Location`, `nostro_transfer.Target Account Venue Location`
   
 **Grain:** one row per correspondent venue  
-**Rows generated:** 68
+**Rows generated:** 117
 
 | Attribute | Notes |
 |---|---|
@@ -80,7 +80,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `client.Legal Entity`
   
 **Grain:** one row per group legal entity  
-**Rows generated:** 12
+**Rows generated:** 14
 
 | Attribute | Notes |
 |---|---|
@@ -112,7 +112,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `nostro_transfer.Sending Strategy`
   
 **Grain:** one row per sending mechanism  
-**Rows generated:** 4
+**Rows generated:** 3
 
 | Attribute | Notes |
 |---|---|
@@ -129,7 +129,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `business_ledger.Sub Branch`
   
 **Grain:** one row per booking desk  
-**Rows generated:** 13
+**Rows generated:** 8
 
 | Attribute | Notes |
 |---|---|
@@ -146,7 +146,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `business_ledger.Book Id`
   
 **Grain:** one row per booking book  
-**Rows generated:** 42
+**Rows generated:** 32
 
 | Attribute | Notes |
 |---|---|
@@ -161,7 +161,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `business_ledger.Cashflow Type`
   
 **Grain:** one row per cashflow classification  
-**Rows generated:** 10
+**Rows generated:** 5
 
 | Attribute | Notes |
 |---|---|
@@ -176,7 +176,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `business_ledger.Ledger Account`
   
 **Grain:** one row per general ledger account  
-**Rows generated:** 1,206
+**Rows generated:** 1,169
 
 | Attribute | Notes |
 |---|---|
@@ -190,7 +190,7 @@ Keyed directly off a column in the live data.
 **Joins from:** `nostro_transfer.Created By`, `nostro_transfer.Approved By`
   
 **Grain:** one row per operator  
-**Rows generated:** 48
+**Rows generated:** 75
 
 | Attribute | Notes |
 |---|---|
@@ -228,7 +228,7 @@ Keyed off an attribute produced by round 1.
 **Reached via:** `counterparty_master.Ultimate Parent`
   
 **Grain:** one row per counterparty group  
-**Rows generated:** 32
+**Rows generated:** 24
 
 | Attribute | Notes |
 |---|---|

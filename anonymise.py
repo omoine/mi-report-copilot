@@ -467,6 +467,94 @@ def cmd_report(category: str | None) -> int:
     return 0
 
 
+# Categories where a match is a genuine disclosure. Short numeric codes and
+# generic vocabulary collide by chance - 6-digit codes have under a million
+# possibilities - so flagging those as leaks trains people to ignore the audit.
+SENSITIVE = frozenset({"person", "venue", "counterparty", "legal_entity",
+                       "system", "ledger_account", "org_unit", "account_number"})
+
+# Below this length a "name" is a code, and codes collide across categories:
+# TRY is a branch code and also a currency, so replacing it by category alone
+# would rename the currency and break every FX join.
+MIN_DISTINCTIVE = 5
+
+
+def _distinctive_lookup(mapping: dict[str, Any]) -> dict[str, str]:
+    """Real -> surrogate, for values distinctive enough to act on safely."""
+    return {real.casefold(): fake
+            for category, table in mapping["categories"].items()
+            if category in SENSITIVE
+            for real, fake in table.items()
+            if real != fake and len(real) >= MIN_DISTINCTIVE and not real.isdigit()}
+
+
+def cmd_remap(path: Path, out: Path, drop_collisions: bool = False) -> int:
+    """Replace only values the golden source already knows, and add nothing.
+
+    `apply` is for a fresh extract: anything it has not seen must be a real
+    value, so it mints a surrogate. That is exactly wrong for a file built FROM
+    already-anonymised data - it re-anonymises the surrogates, which breaks
+    every join, and it records generated values in the golden source as though
+    they had come from the client. This mode substitutes what is already mapped,
+    touches nothing else, and never writes to the mapping.
+    """
+    mapping = _load()
+    lookup = _distinctive_lookup(mapping)
+    frames = _read(path)
+    changed: dict[str, int] = {}
+    dropped: dict[str, int] = {}
+
+    with pd.ExcelWriter(out, engine="openpyxl") as writer:
+        for sheet, df in frames.items():
+            result = df.copy()
+            substituted: set[int] = set()
+            for position, col in enumerate(result.columns):
+                series = result[col]
+                if (pd.api.types.is_numeric_dtype(series)
+                        or pd.api.types.is_datetime64_any_dtype(series)):
+                    continue
+                values, touched = [], []
+                for row, value in enumerate(series):
+                    text = str(value).strip() if value is not None else ""
+                    hit = lookup.get(text.casefold()) if text else None
+                    if hit is None:
+                        values.append(value)
+                        continue
+                    values.append(hit)
+                    touched.append(row)
+                if touched:
+                    result[col] = values
+                    changed[f"{sheet}.{col}"] = len(touched)
+                    if position == 0:
+                        substituted.update(touched)
+
+            # Renaming a value onto one that already exists duplicates the key,
+            # and a duplicated key fans a join out and double-counts silently.
+            # The rows that needed renaming are the ones nothing referenced, so
+            # where they now collide the renamed row is the one to drop.
+            if drop_collisions and substituted and not result.empty:
+                key = result.columns[0]
+                duplicated = result[key].duplicated(keep=False)
+                drop = [row for row in substituted
+                        if duplicated.iloc[row]
+                        and not all(r in substituted
+                                    for r in result.index[result[key] == result[key].iloc[row]])]
+                if drop:
+                    dropped[f"{sheet}.{key}"] = len(drop)
+                    result = result.drop(index=[result.index[r] for r in drop])
+            result.to_excel(writer, sheet_name=sheet[:31], index=False)
+
+    print(f"Remapped -> {out}")
+    print("Golden source unchanged.")
+    if not changed:
+        print("  nothing needed replacing.")
+    for column, count in sorted(changed.items()):
+        print(f"  {column:<44} {count:>4} replaced")
+    for column, count in sorted(dropped.items()):
+        print(f"  {column:<44} {count:>4} rows dropped as duplicate keys")
+    return 0
+
+
 def cmd_audit(path: Path) -> int:
     """Look for values in an anonymised file that are still in the mapping keys,
     i.e. real values that escaped replacement."""
@@ -485,11 +573,6 @@ def cmd_audit(path: Path) -> int:
               for cat, table in mapping["categories"].items()
               for r, fake in table.items() if r != fake}
 
-    # Categories where a match is a genuine disclosure. Short numeric codes and
-    # generic vocabulary collide by chance - 6-digit codes have under a million
-    # possibilities - so flagging those as leaks trains people to ignore the audit.
-    SENSITIVE = {"person", "venue", "counterparty", "legal_entity", "system",
-                 "ledger_account", "org_unit", "account_number"}
 
     leaks: list[str] = []
     coincidental: list[str] = []
@@ -542,6 +625,13 @@ def main() -> int:
     p = sub.add_parser("report", help="show the mapping")
     p.add_argument("--category")
 
+    p = sub.add_parser("remap", help="replace only already-mapped values, "
+                                     "without adding any")
+    p.add_argument("file", type=Path)
+    p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--drop-key-collisions", action="store_true",
+                   help="drop a renamed row whose new key already exists")
+
     p = sub.add_parser("audit", help="check a file for unreplaced real values")
     p.add_argument("file", type=Path)
 
@@ -552,6 +642,8 @@ def main() -> int:
         return cmd_apply(args.file, args.out)
     if args.command == "report":
         return cmd_report(args.category)
+    if args.command == "remap":
+        return cmd_remap(args.file, args.out, args.drop_key_collisions)
     if args.command == "audit":
         return cmd_audit(args.file)
     return 1

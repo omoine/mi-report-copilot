@@ -20,6 +20,14 @@ const backBtn = document.getElementById('modelBack');
 const crumbEl = document.getElementById('modelCrumb');
 const searchEl = document.getElementById('modelSearch');
 
+/* Where the model comes from. The live application answers on /api; the
+   published showcase ships the same payloads as files. The view is identical
+   either way, so it is built once and pointed at whichever exists. */
+const MODEL_SOURCE = window.MODEL_SOURCE || {
+  overview: '/api/model',
+  table: (name) => '/api/model/' + encodeURIComponent(name),
+};
+
 let model = null;
 let loading = null;
 
@@ -29,23 +37,31 @@ const fmt = (n) => Number(n).toLocaleString('en-GB');
 
 function showWorkspace(which) {
   const isModel = which === 'model';
-  analysisView.hidden = isModel;
-  modelView.hidden = !isModel;
-  tabAnalysis.classList.toggle('active', !isModel);
-  tabModel.classList.toggle('active', isModel);
-  tabAnalysis.setAttribute('aria-selected', String(!isModel));
-  tabModel.setAttribute('aria-selected', String(isModel));
+  if (analysisView) analysisView.hidden = isModel;
+  if (modelView) modelView.hidden = !isModel;
+  if (tabAnalysis && tabModel) {
+    tabAnalysis.classList.toggle('active', !isModel);
+    tabModel.classList.toggle('active', isModel);
+    tabAnalysis.setAttribute('aria-selected', String(!isModel));
+    tabModel.setAttribute('aria-selected', String(isModel));
+  }
   if (isModel) loadModel();
 }
 
-tabAnalysis.addEventListener('click', () => showWorkspace('analysis'));
-tabModel.addEventListener('click', () => showWorkspace('model'));
+if (tabAnalysis && tabModel) {
+  tabAnalysis.addEventListener('click', () => showWorkspace('analysis'));
+  tabModel.addEventListener('click', () => showWorkspace('model'));
+  tabAnalysis.classList.toggle('active', true);
+} else {
+  // Published on its own page: nothing to switch to, so it just loads.
+  loadModel();
+}
 
 /* ── overview ──────────────────────────────────────────────────── */
 
 async function loadModel() {
   if (model || loading) return loading;
-  loading = fetch('/api/model')
+  loading = fetch(MODEL_SOURCE.overview)
     .then((r) => r.json())
     .then((data) => { model = data; renderOverview(); })
     .catch((e) => {
@@ -206,7 +222,7 @@ async function openTable(name) {
   detailEl.hidden = false;
   detailEl.innerHTML = '<div class="hint">loading&hellip;</div>';
   try {
-    const res = await fetch(`/api/model/${encodeURIComponent(name)}`);
+    const res = await fetch(MODEL_SOURCE.table(name));
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     renderDetail(await res.json());
   } catch (e) {

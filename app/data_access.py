@@ -20,15 +20,13 @@ import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
-# The month-long generated set is preferred when present: it has the intraday
-# shape, cardinality and joinable keys the original single-day sample lacks.
-# Override with DATA_FILE to pin a specific workbook (the tests do this).
-_DEFAULT_DATA = DATA_DIR / "synthetic_liquidity_month.xlsx"
-_FALLBACK_DATA = DATA_DIR / "synthetic_liquidity_views.xlsx"
-DATA_FILE = Path(
-    os.getenv("DATA_FILE")
-    or (_DEFAULT_DATA if _DEFAULT_DATA.exists() else _FALLBACK_DATA)
-)
+# The month-long generated set is the dataset: it carries the intraday shape,
+# cardinality and joinable keys the tool needs, and it is the one that has been
+# through the anonymiser. The original single-day sample it replaced held values
+# the golden source marks for replacement, so it was removed rather than kept as
+# a fallback. Override with DATA_FILE to pin a specific workbook.
+DATA_FILE = Path(os.getenv("DATA_FILE")
+                 or DATA_DIR / "synthetic_liquidity_month.xlsx")
 
 # All three view sheets share the same layout: title row, two control rows,
 # two blank rows, then the header on row 6. The final row is a "Total" footer
@@ -1701,6 +1699,39 @@ def run_query(
             "executed_at": dt.datetime.now().isoformat(timespec="seconds"),
         },
     }
+
+
+def declared_row_count(view: str) -> int | None:
+    """The row count the view's own control rows claim.
+
+    Each screen prints how many rows it loaded ("Items Loaded", or "Rows"),
+    which makes the workbook checkable against itself: if the stated count and
+    the loaded count disagree, either the extract was truncated or the loader is
+    dropping rows, and both are worth failing over.
+    """
+    sheet = VIEW_SHEETS.get(view)
+    if not sheet:
+        return None
+    book = openpyxl.load_workbook(DATA_FILE, data_only=True, read_only=True)
+    try:
+        if sheet not in book.sheetnames:
+            return None
+        page = book[sheet]
+        # The control rows sit between the title and the blank rows above the
+        # header, as label/value pairs across the row.
+        for row in page.iter_rows(min_row=2, max_row=HEADER_ROW - 1,
+                                 values_only=True):
+            cells = list(row)
+            for index, cell in enumerate(cells[:-1]):
+                if str(cell).strip() in {"Items Loaded", "Rows"}:
+                    value = cells[index + 1]
+                    if isinstance(value, (int, float)):
+                        return int(value)
+                    if isinstance(value, str) and value.strip().isdigit():
+                        return int(value.strip())
+    finally:
+        book.close()
+    return None
 
 
 def sample_rows(view: str, n: int = 5) -> list[dict[str, Any]]:

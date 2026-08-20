@@ -51,14 +51,16 @@ anomalies. Regenerate or resize it with:
 python generate_synthetic.py --accounts 6000 --active 900 --days 22
 ```
 
-Set `DATA_FILE` to pin a different workbook. The original single-day sample is
-kept as `data/synthetic_liquidity_views.xlsx` and is what the tests run against.
+Set `DATA_FILE` to pin a different workbook.
 
-### The original sample
+### The dataset
 
-`data/synthetic_liquidity_views.xlsx` is entirely fabricated — all accounts,
-counterparties, entities, users and amounts. It models three views common to
-intraday liquidity operations:
+`data/synthetic_liquidity_month.xlsx` is entirely fabricated — all accounts,
+counterparties, entities, users and amounts — and every value has been through
+the anonymiser against the golden source. The single-day sample this replaced
+was removed: it still held values the golden source marks for replacement, and
+it had no purpose the month workbook does not serve. It models three views
+common to intraday liquidity operations:
 
 | View | Contents |
 |---|---|
@@ -111,6 +113,20 @@ actually want closed must set its own:
 
 The Render blueprint asks for `APP_PASSWORD` once and generates `APP_SECRET`,
 so neither is ever committed.
+
+## The test fixture
+
+The suite runs against `data/synthetic_liquidity_fixture.xlsx`, a four-day
+workbook produced by the same generator as the month set:
+
+```bash
+.venv\Scripts\python.exe make_fixture.py
+.venv\Scripts\python.exe generate_reference.py
+```
+
+Regenerate the reference data afterwards: `generate_reference.py` keys its
+tables off every `data/synthetic_liquidity*.xlsx` it finds, so both workbooks
+need to be present when it runs or one of them will not join.
 
 ## Tests
 

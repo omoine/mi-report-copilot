@@ -598,6 +598,40 @@ def _write_controls(ws, first, last, data) -> None:
          "Cancelled trades are included in this generated set."),
         ("Business Ledger Transaction View", "Display CCY", "ISO 4217", "GBP",
          "Currency used for the display amount."),
+        # Controls that were documented for the original extract and lost when
+        # this generator replaced it. They describe selectors visible in the
+        # source screenshots, so dropping them made the "controls in effect"
+        # narrative thinner than the screens it is describing.
+        ("Nostro Transfer View", "Team", "Text", "AMER_Funding",
+         "Synthetic operating team."),
+        ("Nostro Transfer View", "View Scope", "Enum", "All",
+         "Scope selector shown beside the view name."),
+        ("Nostro Transfer View", "Loaded Items", "Integer",
+         str(len(data["transfers"])), "Number of synthetic rows loaded."),
+        ("Client View", "Team", "Text", "AMER_Funding",
+         "Synthetic operating team."),
+        ("Client View", "Time Zone", "Enum", "London",
+         "Display time zone for timestamps."),
+        ("Client View", "Swing (Local) Filter", "Text", "=",
+         "Illustrative filter operator."),
+        ("Client View", "Round", "Boolean", "False",
+         "Illustrative rounding option."),
+        ("Client View", "Live Refresh", "Boolean", "False",
+         "Illustrative live-refresh option."),
+        ("Business Ledger Transaction View", "Transaction Timestamp From",
+         "DateTime", f"{first:%Y-%m-%d} 00:00:00",
+         "Start of transaction timestamp range."),
+        ("Business Ledger Transaction View", "Transaction Timestamp To",
+         "DateTime", f"{last:%Y-%m-%d} 23:59:00",
+         "End of transaction timestamp range."),
+        ("Business Ledger Transaction View", "Dr/Cr Mark", "Enum", "Both",
+         "Include debit and credit rows."),
+        ("Business Ledger Transaction View", "Sub Branches", "Enum", "All",
+         "No sub-branch filter applied."),
+        ("Business Ledger Transaction View", "Currencies", "Enum", "All",
+         "No local-currency filter applied."),
+        ("Business Ledger Transaction View", "Amount (Local)", "Filter",
+         "= [blank]", "Illustrative amount filter."),
     ]
     for i, values in enumerate(rows, start=5):
         for j, value in enumerate(values, start=1):

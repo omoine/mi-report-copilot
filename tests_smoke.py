@@ -7,11 +7,11 @@ from pathlib import Path
 import os
 import sys
 
-# Pin the tests to the small fixed sample: the row-count assertions below
-# describe that file, and the app defaults to the generated month.
+# Pin the tests to the month workbook explicitly, so a stray DATA_FILE in the
+# environment cannot quietly point the suite at something else.
 os.environ.setdefault(
     "DATA_FILE",
-    str(Path(__file__).parent / "data" / "synthetic_liquidity_views.xlsx"),
+    str(Path(__file__).parent / "data" / "synthetic_liquidity_fixture.xlsx"),
 )
 
 from app import data_access, md_export, pdf_export, report_builder
@@ -33,10 +33,15 @@ for view in ("nostro_transfer", "client", "business_ledger"):
     check(f"{view} loaded", not df.empty, f"{len(df)} rows x {len(df.columns)} cols")
     check(f"{view} excludes Total footer", "Total" not in df.iloc[:, 0].astype(str).values)
 
-expected = {"nostro_transfer": 37, "client": 24, "business_ledger": 60}
-for view, n in expected.items():
+# Each view sheet states its own row count in its control rows ("Items Loaded"
+# or "Rows"). Comparing that against the rows actually loaded checks a real
+# invariant - the workbook agreeing with itself - and keeps holding when the
+# fixture is regenerated at a different size, which a hardcoded number does not.
+for view in ("nostro_transfer", "client", "business_ledger"):
     actual = len(data_access.get_frame(view))
-    check(f"{view} row count == {n} (per workbook README)", actual == n, f"got {actual}")
+    stated = data_access.declared_row_count(view)
+    check(f"{view} row count matches the count the sheet declares",
+          stated == actual, f"sheet says {stated}, loaded {actual}")
 
 print("\n2. Derived (formula) columns carry cached values")
 client = data_access.get_frame("client")
@@ -60,7 +65,9 @@ print("\n5. Deterministic queries")
 r1 = data_access.run_query("nostro_transfer", group_by=["Currency"],
                            measure="Value Amount", aggregation="sum")
 check("group-by query returns rows", not r1["table"].empty, f"{len(r1['table'])} groups")
-check("provenance recorded", r1["provenance"]["rows_in_view"] == 37)
+check("provenance recorded",
+      r1["provenance"]["rows_in_view"] == len(data_access.get_frame("nostro_transfer")),
+      str(r1["provenance"]["rows_in_view"]))
 
 r2 = data_access.run_query("client", filters=[{"column": "Match", "operator": "eq", "value": "✕"}],
                            aggregation="count")
@@ -93,7 +100,10 @@ lst = data_access.run_query(
     filters=[{"column": "Match", "operator": "eq", "value": "unmatched"}],
     columns=["Account", "Account Name", "Difference (Local)"],
     sort_by="Difference (Local)", sort_desc=True)
-check("list returns rows not a count", len(lst["table"]) == 3, f"{len(lst['table'])} rows")
+unmatched_rows = int((data_access.get_frame("client")["Match"] != "✓").sum())
+check("list returns rows not a count",
+      len(lst["table"]) == unmatched_rows,
+      f"{len(lst['table'])} rows for {unmatched_rows} unmatched")
 check("list returns requested columns",
       list(lst["table"].columns) == ["Account", "Account Name", "Difference (Local)"],
       str(list(lst["table"].columns)))
@@ -286,10 +296,15 @@ check("the partitioning is reported",
 
 print("\n5g. Combine / vlookup")
 try:
+    # Transaction references and account numbers are different populations by
+    # construction, so nothing can match. Account-to-account used to serve here,
+    # but both views are now drawn from one account universe and do match.
     data_access.run_query("business_ledger", mode="list",
-                          join={"view": "client", "on": {"left": "Account", "right": "Account"},
+                          join={"view": "client",
+                                "on": {"left": "Transaction Reference",
+                                       "right": "Account"},
                                 "bring": ["Legal Entity"]},
-                          columns=["Account", "Legal Entity"])
+                          columns=["Transaction Reference", "Legal Entity"])
     check("mismatched keys raise rather than return empty", False, "no error raised")
 except data_access.QueryError as exc:
     check("mismatched keys raise rather than return empty",
@@ -375,12 +390,28 @@ check("max is not treated as additive",
       extreme["measure_columns"] == ["Amount (Local)"],
       str(extreme["measure_columns"]))
 
-# Where no FX-translated twin exists the query must be refused, not fudged.
-# This sample carries no display amount on the transfer view - the exact gap
-# recorded as Priority 2b in DATA_REQUIREMENTS.md.
+# Summing one currency column across several currencies adds unlike units. The
+# generated data carries an FX-translated twin for the transfer amount - the gap
+# recorded as Priority 2b in DATA_REQUIREMENTS.md, now closed - so the engine
+# should substitute the comparable column and record that it did, rather than
+# either refusing or silently adding the local amounts together.
+crossed = data_access.run_query(
+    "nostro_transfer", group_by=["Sending Strategy"],
+    measures=[{"column": "Value Amount", "aggregation": "sum"}])
+check("a cross-currency sum uses the FX-translated column",
+      "Value Amount (Display)" in crossed["measure_columns"],
+      str(crossed["measure_columns"]))
+check("the substitution is reported",
+      bool(crossed["provenance"]["currency_corrections"]),
+      str(crossed["provenance"]["currency_corrections"])[:120])
+
+# And where no twin exists it must still refuse rather than fudge it.
 try:
-    data_access.run_query("nostro_transfer", group_by=["Sending Strategy"],
-                          measures=[{"column": "Value Amount", "aggregation": "sum"}])
+    # EOD Balance (Local) has no FX-translated twin, so there is nothing to
+    # substitute and adding it across currencies would combine unlike units.
+    data_access.run_query("client", group_by=["Legal Entity"],
+                          measures=[{"column": "EOD Balance (Local)",
+                                     "aggregation": "sum"}])
     check("refuses when no FX-translated column exists", False, "no error raised")
 except data_access.QueryError as exc:
     check("refuses when no FX-translated column exists",
