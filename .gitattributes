@@ -1,0 +1,8 @@
+# Binary assets must never be line-ending converted. Without this git warns
+# that it will "replace LF with CRLF the next time it touches" a PDF, and a
+# fresh clone gets a corrupted file - the published site would serve broken
+# downloads to anyone who cloned and rebuilt.
+*.pdf   binary
+*.png   binary
+*.xlsx  binary
+*.svg   text eol=lf
